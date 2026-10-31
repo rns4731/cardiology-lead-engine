@@ -19,7 +19,10 @@ open http://localhost:8080
 
 | Service | What it does |
 |---|---|
+| `db` | Postgres 17 — the engine's system of record (`localhost:5432`, user/db `leads`) |
+| `migrate` | one-shot `alembic upgrade head`: creates / migrates the tables |
 | `exporter` | one-shot Python engine: scores both universes, writes the JSON bundles to a shared volume (offline; real identities come from the committed cache) |
+| `loader` | one-shot: stores the cached public pulls and every bundle in Postgres (idempotent) |
 | `web` | nginx serving the production React build; mounts the bundles read-only; starts only after the exporter succeeds; healthy once `/data/manifest.json` is served |
 | `tests` *(profile)* | `docker compose --profile test run --rm tests` — the engine suite inside the image |
 | `streamlit` *(profile)* | `docker compose --profile legacy up -d` — the original demo on :8501 |
@@ -37,6 +40,12 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 # web app
 npm --prefix web install
 npm --prefix web run dev                          # → http://localhost:5190
+```
+
+Postgres (optional locally; the web app never reads it) — see [docs/database.md](docs/database.md):
+
+```bash
+docker compose up -d db && .venv/bin/alembic upgrade head && .venv/bin/python -m engine.db.load
 ```
 
 Bundles and the cached real identities are committed, so the app runs from a fresh clone

@@ -1,4 +1,7 @@
 numpy>=1.24
 pandas>=2.0
 pytest>=8.0     # tests
+sqlalchemy>=2.0.36      # Postgres store (engine/db)
+psycopg[binary]>=3.2.3  # Postgres driver
+alembic>=1.14           # schema migrations
 streamlit>=1.30  # legacy demo UI only (app.py); the engine needs just numpy + pandas

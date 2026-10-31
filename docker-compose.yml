@@ -5,11 +5,64 @@
 #   docker compose --profile test run --rm tests  # engine test suite in the container
 #   docker compose --profile legacy up -d         # + the original Streamlit demo on :8501
 #   docker compose run --rm exporter python -m engine.export_web   # re-pull real identities (network)
+#   docker compose exec db psql -U leads leads    # query the Postgres store
 #
 # Same architecture as the app: the engine computes everything, the web tier only renders.
+# Postgres (db) is the engine's system of record: migrate creates the tables (Alembic), the
+# loader stores raw public pulls + every exported bundle. The web never reads the database.
 name: cardiology-lead-engine
 
+x-database-url: &database-url
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-leads}:${POSTGRES_PASSWORD:-leads}@db:5432/${POSTGRES_DB:-leads}
+
 services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-leads}
+      POSTGRES_USER: ${POSTGRES_USER:-leads}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-leads}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot: brings the schema to the latest Alembic revision.
+  migrate:
+    build:
+      context: .
+      target: engine
+    image: cardiology-lead-engine/engine:local
+    command: ["alembic", "upgrade", "head"]
+    environment: *database-url
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # One-shot: stores the cached public pulls and every bundle the exporter wrote.
+  loader:
+    build:
+      context: .
+      target: engine
+    image: cardiology-lead-engine/engine:local
+    command: ["python", "-m", "engine.db.load"]
+    environment: *database-url
+    volumes:
+      - bundles:/app/web/public/data:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      exporter:
+        condition: service_completed_successfully
+    restart: "no"
+
   # One-shot: scores both universes and writes the JSON bundles into the shared volume.
   # Offline by default -- the real bundle is rebuilt from the cached public NPI records.
   exporter:
@@ -50,6 +103,12 @@ services:
       context: .
       target: engine
     command: ["python", "-m", "pytest"]
+    # the Postgres tests use their own database (leads_test), never the app's
+    environment:
+      TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-leads}:${POSTGRES_PASSWORD:-leads}@db:5432/leads_test
+    depends_on:
+      db:
+        condition: service_healthy
 
   # The original Streamlit demo (left as-is).
   streamlit:
@@ -63,3 +122,4 @@ services:
 
 volumes:
   bundles:
+  pgdata:

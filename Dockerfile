@@ -19,7 +19,8 @@ COPY tests/ tests/
 # public NPI-registry identities cached from the last live fetch: lets the real bundle
 # be rebuilt offline, so `docker compose up` needs no network
 COPY data/ data/
-COPY run.py pytest.ini ./
+# alembic.ini points at engine/db/migrations (the `migrate` service runs it)
+COPY run.py pytest.ini alembic.ini ./
 
 # bundles are written here; compose mounts a named volume on this path. Creating it in
 # the image (owned by the app user) gives a fresh volume the right ownership.

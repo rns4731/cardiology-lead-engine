@@ -19,8 +19,14 @@ engine/ (Python, numpy+pandas)          web/ (React 18 + TS + Vite + Tailwind v4
   evaluate.py       precision/lift/AUC    web/public/data/<source>/bundle.json  ← the contract
   export_web.py     → bundles + manifest  web/public/data/manifest.json
   bundle_check.py   contract validator
+  db/               Postgres store: models.py, load.py, read.py, migrations/ (Alembic)
 run.py, app.py (Streamlit — legacy demo, leave as is), tests/ (pytest)
 ```
+
+Postgres is the engine's system of record (raw pulls + every export run + outreach outcomes);
+`engine.db.load` stores what the engine already wrote. The web never reads the database.
+Change `engine/db/models.py` ⇒ add an Alembic revision (`test_models_match_the_migrations`).
+See docs/database.md.
 
 Data flows one way: **engine computes everything → JSON bundle → web renders**. Routes are
 `/:source/{dashboard,locations[/:slug],systems/:slug,cardiologists[/:npi],groups[/:id],signals[/:key]}`
@@ -39,6 +45,9 @@ node web/scripts/screenshots.mjs                    # visual QA in real Chrome (
 scripts/smoke.sh                                    # the whole ladder, in order
 docker compose up --build -d                        # containerized: exporter -> nginx on :8080
 docker compose --profile test run --rm tests        # engine suite inside the image
+docker compose up -d db && .venv/bin/alembic upgrade head   # Postgres + schema
+.venv/bin/python -m engine.db.load                  # store raw pulls + bundles (idempotent)
+.venv/bin/alembic revision --autogenerate -m "..."  # after changing engine/db/models.py
 ```
 
 Docker layout: root `Dockerfile` (targets `engine`, `legacy`), `web/Dockerfile` (node build →
