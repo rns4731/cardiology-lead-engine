@@ -1,0 +1,65 @@
+# Independent-Cardiology Lead Engine
+#
+#   docker compose up --build -d                  # exporter builds data, then web serves it
+#   open http://localhost:8080
+#   docker compose --profile test run --rm tests  # engine test suite in the container
+#   docker compose --profile legacy up -d         # + the original Streamlit demo on :8501
+#   docker compose run --rm exporter python -m engine.export_web   # re-pull real identities (network)
+#
+# Same architecture as the app: the engine computes everything, the web tier only renders.
+name: cardiology-lead-engine
+
+services:
+  # One-shot: scores both universes and writes the JSON bundles into the shared volume.
+  # Offline by default -- the real bundle is rebuilt from the cached public NPI records.
+  exporter:
+    build:
+      context: .
+      target: engine
+    image: cardiology-lead-engine/engine:local
+    volumes:
+      - bundles:/app/web/public/data
+    restart: "no"
+
+  # nginx serving the production React build; bundles mounted read-only from the exporter.
+  web:
+    build:
+      context: ./web
+    image: cardiology-lead-engine/web:local
+    ports:
+      - "8080:80"
+    volumes:
+      - bundles:/usr/share/nginx/html/data:ro
+    depends_on:
+      exporter:
+        condition: service_completed_successfully
+    healthcheck:
+      # healthy only when nginx is up AND the data is there
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1/data/manifest.json"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # Engine test suite (66+ tests, incl. locked headline metrics) inside the image.
+  tests:
+    profiles: ["test"]
+    image: cardiology-lead-engine/engine:local
+    build:
+      context: .
+      target: engine
+    command: ["python", "-m", "pytest"]
+
+  # The original Streamlit demo (left as-is).
+  streamlit:
+    profiles: ["legacy"]
+    build:
+      context: .
+      target: legacy
+    image: cardiology-lead-engine/legacy:local
+    ports:
+      - "8501:8501"
+
+volumes:
+  bundles:

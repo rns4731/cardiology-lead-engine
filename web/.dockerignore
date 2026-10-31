@@ -1,0 +1,7 @@
+node_modules
+dist
+# bundles come from the exporter's volume at runtime, not the image
+public/data
+scripts
+*.log
+.DS_Store

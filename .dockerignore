@@ -1,0 +1,12 @@
+# engine build context (repo root): only engine/, tests/, data/ and a few files are needed
+.git
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+outputs
+web
+docs
+.claude
+.DS_Store

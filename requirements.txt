@@ -1,0 +1,4 @@
+numpy>=1.24
+pandas>=2.0
+pytest>=8.0     # tests
+streamlit>=1.30  # legacy demo UI only (app.py); the engine needs just numpy + pandas

@@ -1,0 +1,19 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# web
+web/node_modules/
+web/dist/
+
+# generated locally
+outputs/
+.DS_Store
+.streamlit/
+.claude/settings.local.json
+
+# NOTE: web/public/data/ (bundles) and data/cache/ (public NPI-registry identities)
+# are committed on purpose so the app runs and rebuilds offline from a fresh clone.

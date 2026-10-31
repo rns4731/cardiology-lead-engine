@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  /* Tailwind UI / Inter type system: one family. Headings use Inter's Display optical
+     size (opsz axis, applied automatically at large sizes), semibold, tight tracking. */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-ink: #081020;
+  --color-ink-700: #16213a;
+  --color-paper: #f6f7f9;
+
+  --color-brand: #0d9488;
+  --color-brand-light: #14b8a6;
+  --color-brand-dark: #0f766e;
+  --color-accent: #e11d48;
+  --color-accent-light: #fb7185;
+}
+
+:root {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  .font-display {
+    font-weight: 600;
+    letter-spacing: -0.022em;
+    font-optical-sizing: auto;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-brand) 25%, transparent);
+}
+
+/* thin, refined scrollbars inside panels */
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* hero texture: faint dot grid */
+.dotgrid {
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.08) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+.gradient-text {
+  background: linear-gradient(
+    100deg,
+    var(--color-brand-light),
+    var(--color-accent-light)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes growbar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.bar-grow {
+  transform-origin: left;
+  animation: growbar 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fadeup 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes slidein {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.slide-in {
+  animation: slidein 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
