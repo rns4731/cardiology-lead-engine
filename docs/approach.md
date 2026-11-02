@@ -107,7 +107,25 @@ top-n figures must be ≥20 leads apart — otherwise subtracting one from anoth
 individual outcomes (the review recovered five that way). Precision@50 is withheld for that
 reason; the validator enforces the rule on every export.
 
-On real data these become: contact-verification hit rate, outreach→meeting rate, and
+**A back-test on real data** (`engine/backtest.py`). There is no record of who left hospital
+employment, so the Real data mode uses an *inferred* outcome: rebuild the signals as they stood
+at the Oct 2022 CMS Doctors & Clinicians snapshot, then check who appeared in an
+independent-style group by Oct 2024. 935 hospital-based cardiologists in seven states; 44 moved
+(4.7%). L2 logistic regression, scored out-of-fold on held-out doctors. The pass rule was fixed
+before running: the out-of-fold AUC's 95% interval must sit above 0.5. It passed — the top 50
+held-out doctors included 10 movers (20% vs 4.7%, ~4.3×, likely 2.4–7.0×) — but:
+- it failed the cross-check: the same score didn't predict the other inferred outcome (switching
+  to office-dominant billing, 2022 → 2024; AUC 0.55, CI 0.47–0.63);
+- most fitted directions are the opposite of the hypotheses above (lower productivity and fewer
+  independent groups nearby point toward moving); only industry payments points the expected way
+  with confidence;
+- the mover count swings from 12 to 56 depending on the window, so some "moves" may be quirks of
+  how CMS lists groups.
+
+So the Real data mode shows these scores as *leads to check, not a forecast*, with the warnings
+beside them. The weak link is the outcome definition, not the model.
+
+On real outreach these become: contact-verification hit rate, outreach→meeting rate, and
 ultimately **# of viable 5+ groups formed** — the only metric the Company truly cares
 about.
 
@@ -146,7 +164,9 @@ profiles, and the strongest candidate from each other subspecialty.
 
 A dashboard toggle switches between the **synthetic** universe (with a hidden outcome, used
 to test the pipeline) and **Real data**: real cardiologists from public CMS records, with
-signals filled from real records where they exist and nothing scored. An earlier mode put
+signals filled from real records where they exist, each labeled by provenance, and scores from
+the back-test (§4) shown with its warnings; no timing windows or cohorts. A **News** page in each
+mode shows every article the news pipeline read and what Claude extracted. An earlier mode put
 real NPI-registry names on simulated signals; it was removed, because a simulated score
 next to a real physician reads as a fact about them and adds nothing the synthetic universe
 doesn't already show.
@@ -156,8 +176,9 @@ doesn't already show.
    Clinicians snapshots 2019–2026 (billing groups, graduation year, hospital affiliations),
    Medicare work RVUs, Open Payments, hospital ownership changes, and a news pipeline (Claude
    reads articles; an event counts only when its quote is verbatim in the article). Nine of the
-   ten signals have real inputs, several as labeled stand-ins or inferences; contract window has
-   no public source. What's still missing is a real outcome to fit and check weights against.
+   ten signals have real inputs (one exact; the rest stand-ins, inferences or an assumed lookup);
+   contract window has no public source. A back-test on an inferred outcome exists (§4) but failed
+   its cross-check; what's still missing is a *confirmed* outcome to fit and check weights against.
 2. **Contact verification layer** — vendor enrichment with a confidence score; only
    promote verified leads into cohorts.
 3. **Learn the weights** — once outreach outcomes exist, fit a calibrated model and
@@ -180,17 +201,23 @@ doesn't already show.
   Mountain Regional") turned out to match a real VA medical center. In Synthetic mode no
   signal is connected to data — every value is simulated and labeled so; the app names
   where each would come from in production. Real data mode fills nine of the ten signals
-  from CMS records (each labeled exact, stand-in, inferred or assumption) and scores
-  nothing, because there is no real outcome to fit or check weights against. Timing also
-  needs contract and non-compete dates, which only relationships provide.
-- **Engineering practice:** 82 engine tests (including "flipping the hidden label changes no
+  from public records (CMS Medicare billing, Doctors & Clinicians snapshots, Open Payments,
+  ownership changes, and news), each labeled exact, stand-in, inferred or assumption; only one
+  is exact. Its scores come from the back-test in §4, on an inferred outcome, and are shown as
+  leads to check. Timing also needs contract and non-compete dates, which only relationships
+  provide. In Synthetic mode employer disruption is read by the news pipeline from fictional
+  articles Claude wrote about the simulator's own events (no real organization is named).
+- **Engineering practice:** 84 engine tests (including "flipping the hidden label changes no
   score"), a bundle-contract validator the exporter runs before writing, 62 web tests
-  including a crawler that follows every link from the dashboard and fails on any dead end,
-  and visual QA in a real browser at desktop and phone width. The repo ships a `.claude/`
+  including a crawler that follows every link from the Synthetic dashboard and fails on any dead
+  end (the Real data pages are checked in a real browser, not in the vitest suite), and visual QA
+  in a real browser at desktop and phone width. The repo ships a `.claude/`
   folder with skills, an adversarial review process and the testing ladder. **The review was
   run on this build:** four red teams raised 39 findings; all reproduced (37 unique), and
   every one was fixed with a regression test that failed first — see
   `.claude/reviews/2026-10-29-full-review.md`.
 - **AI tools:** built with Claude Code — code generation, data modeling, the web app, the
   test suites and this write-up — with the decisions, scoping and verification reviewed at
-  each step. Nothing proprietary used.
+  each step. Inside the product, Claude (`claude-opus-5-5`) reads news articles and extracts
+  employer events; an event is kept only if its quote appears word for word in the article.
+  It also wrote the fictional articles the Synthetic mode reads. Nothing proprietary used.

@@ -22,7 +22,7 @@ export function RealLocationsPage() {
         crumbs={[{ label: "Dashboard", to: paths.dashboard(S) }, { label: "Locations" }]}
         kicker="Real data only"
         title="Locations"
-        subtitle="The eight cities, with real CMS counts. There's no score, so cities aren't ranked by opportunity and no cohorts are formed."
+        subtitle="The eight cities, with real CMS counts. Cities aren't ranked by opportunity and no cohorts are formed: no qualifying floor has a real basis."
       />
       <ChartFrame
         title="Cardiologists listed by city"
@@ -69,10 +69,10 @@ export function RealLocationsPage() {
                   {subs.filter((s) => m.mix[s]).map((s) => `${s} ${m.mix[s]}`).join(" · ") || "—"}
                 </td>
                 <td className="py-3 pr-4">
-                  <Blank label="No score, so nobody qualifies" />
+                  <Blank label="No qualifying floor with a real basis" />
                 </td>
                 <td className="py-3 pr-5">
-                  <Blank label="No cohorts: needs a score" />
+                  <Blank label="No cohorts: no qualifying floor" />
                 </td>
               </tr>
             ))}
@@ -106,8 +106,8 @@ export function RealLocationPage() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatTile label="Billing Medicare" value={m.billing.toLocaleString()} sub="real CMS count" />
         <StatTile label="Hospital-based (inferred)" value={m.total.toLocaleString()} sub={pct(m.billing ? m.total / m.billing : null) + " of them"} />
-        <StatTile label="Qualified" value={<Blank />} sub="no score to qualify anyone" />
-        <StatTile label="Candidate cohorts" value={<Blank />} sub="need a score" />
+        <StatTile label="Qualified" value={<Blank />} sub="no qualifying floor with a real basis" />
+        <StatTile label="Candidate cohorts" value={<Blank />} sub="need a qualifying floor" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
@@ -133,9 +133,9 @@ export function RealLocationPage() {
         <Card className="p-5 text-sm text-slate-600 lg:col-span-2">
           <h3 className="text-[15px] font-semibold text-ink">No cohorts here, by design</h3>
           <p className="mt-1.5">
-            A founding cohort needs five or more cardiologists who qualify on score. Signals here have real values, but no
-            weights have a real basis, so there's no score: nobody qualifies and no cohort is formed. The list below is everyone
-            on record, not a shortlist.
+            A founding cohort needs five or more cardiologists who qualify on score. The back-test score here is a lead list
+            to check (it failed its cross-check), and no qualifying floor has a real basis, so nobody qualifies and no cohort
+            is formed. The list below is everyone on record, not a shortlist.
           </p>
           <p className="mt-2 text-xs text-slate-500">
             Employers are unknown (CMS hospital-affiliation data refused this client), so there's no hospital-system breakdown

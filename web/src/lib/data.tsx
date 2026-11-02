@@ -137,7 +137,7 @@ export function DataProvider({
 }
 
 // ---------------------------------------------------------------------------------
-// Real data source: its own bundle shape (real records, empty signals, no score), so it
+// Real data source: its own bundle shape (real records, labeled signals, back-test scores), so it
 // gets its own provider instead of nullable fields threaded through every scored page.
 
 const realCheck = (b: RealDataBundle) =>

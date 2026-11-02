@@ -32,12 +32,15 @@ Close other tabs; zoom 100%; bundles already exported (no live network needed).
 5. **Cardiologist (2 min)** — why this score, why this window, cohorts they could join,
    colleagues/similar/complements.
 6. **Toggle to Real data (2 min)** — real CMS records, nine of ten signals filled and
-   labeled by provenance, nothing scored: what's knowable today without a real outcome. Why
-   there's no "real names + simulated scores" mode: a fake score on a real person reads as fact.
+   labeled by provenance (only one exact). The back-test: fitted on who moved 2022 → 2024, it
+   beat chance but failed its cross-check and reversed most hypotheses, so its scores are leads
+   to check. Then the News page: Claude's events, each with its verbatim quote. Why there's no
+   "real names + simulated scores" mode: a fake score on a real person reads as fact.
 
 ## Hard questions to rehearse
 - "How do you know the weights are right?" → they're priors; per-signal AUC shows which to
-  revisit; learning waits for real outcomes (fitting to a simulated label is circular).
+  revisit. A real-data back-test exists, but on an inferred outcome it failed its cross-check
+  and reversed most hypotheses, so trustworthy weights wait for confirmed moves.
 - "Is 0.62 AUC good?" → irreducible noise by design; the business metric is top-of-list
   lift and, ultimately, groups formed.
 - "What breaks with real data?" → employer affiliation and behavioral signals need PECOS,

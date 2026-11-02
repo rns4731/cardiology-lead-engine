@@ -28,8 +28,11 @@ open http://localhost:8080
 | `tests` *(profile)* | `docker compose --profile test run --rm tests` — the engine suite inside the image |
 | `streamlit` *(profile)* | `docker compose --profile legacy up -d` — the original demo on :8501 |
 
-Re-pull the CMS records (network): `docker compose run --rm exporter python -m engine.export_web`, then
-`docker compose restart web`. Stop: `docker compose down` (add `-v` to drop the data volume).
+Re-pull the CMS Medicare utilization records (network, ~2 h):
+`docker compose run --rm exporter python -m engine.export_web`, then `docker compose run --rm loader`;
+the api serves the newest stored export, no restart needed. The other real inputs (CMS Doctors &
+Clinicians snapshots, Open Payments, news) are refreshed locally; see *Refreshing the real inputs*.
+Stop: `docker compose down` (add `-v` to drop the data volumes).
 
 **Local development:**
 
@@ -49,20 +52,22 @@ Postgres (Docker serves the app from it; optional for local dev) — see [docs/d
 docker compose up -d db && .venv/bin/alembic upgrade head && .venv/bin/python -m engine.db.load
 ```
 
-Bundles and the cached CMS pulls are committed, so the app runs from a fresh clone
-without network. To re-pull the CMS records, run `.venv/bin/python -m engine.export_web`
-(no `--offline`).
+Bundles and the compact caches of every real input (`data/cache/`) are committed, so the app
+runs and rebuilds from a fresh clone without network. `.venv/bin/python -m engine.export_web`
+(no `--offline`) re-pulls only the CMS Medicare utilization records; the other inputs have their
+own commands below.
 
 ## What's inside
 
 | | |
 |---|---|
 | **Methodology** (`/`) | the funnel, scope, the ten signals, timing, cohort viability, honest validation |
-| **Dashboard** (`/:source/dashboard`) | KPIs, US map, strongest cohorts, act-now list, timing & subspecialty mix, threshold sensitivity, signals — plus the **Real data / Synthetic** toggle |
-| **Locations**, **Hospital systems** | per-metro and per-employer pages: cohorts, systems, charts that drill into filtered lists |
-| **Cohorts** | viability breakdown, members, and who would strengthen the cohort (Δ viability) |
-| **Cardiologists** | URL-filterable directory; each profile shows why this score, why this window, cohorts they could join, related colleagues / similar profiles / complements |
-| **Signals** | how each signal is computed, where the data comes from, and whether it predicts on its own |
+| **Dashboard** (`/:source/dashboard`) | Synthetic: KPIs, US map, strongest cohorts, act-now list, timing & subspecialty mix, threshold sensitivity, signals. Real data: counts, signal coverage, the back-test and its warnings. Plus the **Real data / Synthetic** toggle |
+| **Locations**, **Hospital systems** | per-metro and per-employer pages (hospital systems exist only in Synthetic; real employers aren't known) |
+| **Cohorts** | Synthetic: viability breakdown, members, and who would strengthen the cohort (Δ viability). Real data: none formed |
+| **Cardiologists** | URL-filterable directory. Synthetic: why this score, why this window, cohorts, related colleagues. Real data: the record behind every signal value, billing group, hospitals, news evidence, back-test score |
+| **Signals** | how each signal is computed, where the data comes from, and whether it predicts (Real data: provenance label, coverage, fitted weight) |
+| **News** | every article the news pipeline read and what Claude extracted: fictional articles with extraction accuracy (Synthetic), real articles with links and verbatim quotes (Real data) |
 
 **Data modes.** *Synthetic*: 1,200 simulated cardiologists with a hidden 24-month outcome
 the scorer never sees — it tests the pipeline (top-25 move rate 44% vs 19.7% base →
@@ -106,8 +111,9 @@ lead list to check, not a forecast. Timing windows and cohorts stay blank.
 "Independent-style group" is a stated guess: its cardiologists bill mostly in office settings, its
 legal name doesn't say hospital / medical center / health system / university / provider network,
 and it shares no distinctive name word with a hospital its members are affiliated with. Some
-hospital-owned groups still pass. No weights have a real basis and there's no real outcome, so
-score, ranking, timing windows and cohorts stay blank.
+hospital-owned groups still pass. Only one of the ten signals (industry engagement) is exactly what
+it claims to measure; the other eight filled ones are stand-ins, inferences or an assumed lookup.
+The 0–1 values come from the Synthetic formulas, which are themselves design assumptions.
 
 **News pipeline** (`engine/news/`). For each listed cardiologist's billing group and affiliated
 hospitals, Google News is searched for the last 36 months; each article is opened in real Chrome
@@ -127,9 +133,11 @@ node scripts/download_cms.cjs data/raw/cms <snapshot zip urls>   # CMS Doctors &
 .venv/bin/python -m engine.cms_directory     # -> data/cache/cms_directory.json.gz
 .venv/bin/python -m engine.wrvu              # -> data/cache/work_rvu_2024.json
 .venv/bin/python -m engine.open_payments     # streams the 2025 bulk file -> data/cache/open_payments.json
+.venv/bin/python -m engine.open_payments 2021  # the back-test's pre-2022 payments -> open_payments_2021.json
 .venv/bin/pip install -r requirements-pipeline.txt   # anthropic, trafilatura
 .venv/bin/python -m engine.news.fake         # fictional articles + extraction (Claude) -> data/cache/news_fake.json
 .venv/bin/python -m engine.news.real_news    # real news (Claude) -> data/cache/news_real.json
+.venv/bin/python -m engine.backtest          # back-test and fit (offline) -> data/cache/backtest.json
 .venv/bin/python -m engine.export_web --offline
 ```
 
@@ -140,10 +148,14 @@ is cached in `data/raw/llm/`, so re-runs are free; bundle rebuilds never call th
 
 ```
 engine/        scoring · timing · signals catalog · cohort formation · insights · evaluation
-               export_web (bundles) · bundle_check (contract) · real_data (CMS records)
-web/           React + TypeScript + Tailwind; src/pages (one per entity), src/test
-tests/         pytest suite for the engine and the bundle contract
-scripts/       smoke.sh — the full test ladder
+               export_web (bundles) · bundle_check (contract)
+               real_data (Real data bundle) · real_signals (the ten signals from real records)
+               public_fetch · cms_directory · open_payments · wrvu (real inputs -> data/cache/)
+               backtest (fit + held-out test) · news/ (Claude news pipeline) · db/ (Postgres store)
+web/           React + TypeScript + Tailwind; src/pages (one per entity; real/ for Real data), src/test
+tests/         pytest suite for the engine, the bundle contract, the news rules and the store
+scripts/       smoke.sh (test ladder) · download_cms.cjs, fetch_pages.cjs (real-browser fetches)
+data/cache/    committed compact inputs; data/raw/ (git-ignored) holds downloads and the Claude cache
 .claude/       CLAUDE.md, skills, agents, adversarial review process (see below)
 run.py, app.py legacy CLI and Streamlit demo
 ```
@@ -155,11 +167,14 @@ scripts/smoke.sh          # pytest → rebuild → contract → typecheck → vi
 scripts/smoke.sh --fast   # inner loop
 ```
 
-82 engine tests (incl. "flipping the hidden label changes no score", locked headline
-metrics, and one regression per adversarial-review finding), a contract validator the
-exporter runs before writing (including disclosure control), and 62 web tests — every page
-type in the scored source plus a crawler that follows every link from the dashboard and
-fails on any dead end. Visual QA runs in real Chrome via `web/scripts/screenshots.mjs`.
+84 engine tests (incl. "flipping the hidden label changes no score", locked headline
+metrics, one regression per adversarial-review finding, the news-pipeline rules and the
+back-test's no-imputation rule), a contract validator the exporter runs before writing
+(including disclosure control, and for Real data: no value without a stated fact, no scores
+without a passing back-test, no article text shipped), and 62 web tests — every Synthetic page
+type plus a crawler that follows every link from the dashboard and fails on any dead end. The
+Real data pages have no vitest coverage; `web/scripts/screenshots.mjs` renders five of them in
+real Chrome alongside the Synthetic pages.
 
 ## Developing with Claude Code
 

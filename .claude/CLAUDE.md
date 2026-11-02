@@ -11,11 +11,15 @@ matter more than feature count.
 ```
 engine/ (Python, numpy+pandas)          web/ (React 18 + TS + Vite + Tailwind v4)
   generate_data.py  synthetic universe    src/lib/data.tsx    fetch + cache bundles, index
-  real_data.py      Real data (CMS)       src/lib/paths.ts    every URL; source in the path
+  real_data.py      Real data bundle      src/lib/paths.ts    every URL; source in the path
+  real_signals.py   10 signals from real records, labeled exact/stand-in/inferred/assumption
+  backtest.py       fit + held-out test on real history (scores only if it beats chance)
+  public_fetch.py, cms_directory.py, open_payments.py, wrvu.py   real inputs -> data/cache/
+  news/             Claude news pipeline: llm, extract (verify), fake (fictional), real_news
   scoring.py        propensity + timing   src/pages/*         one page per entity type
-  signals.py        signal catalog        src/components/     links, charts, LeadTable
-  clustering.py     cohort formation      src/test/           routes, crawler, lib tests
-  insights.py       rollups/related/fit
+  signals.py        signal catalog        src/pages/real/     Real data pages (own layout)
+  clustering.py     cohort formation      src/components/     links, charts, LeadTable
+  insights.py       rollups/related/fit   src/test/           routes, crawler, lib tests
   evaluate.py       precision/lift/AUC    web/public/data/<source>/bundle.json  ← the contract
   export_web.py     → bundles + manifest  web/public/data/manifest.json
   bundle_check.py   contract validator
@@ -31,22 +35,25 @@ Change `engine/db/models.py` ⇒ add an Alembic revision (`test_models_match_the
 See docs/database.md.
 
 Data flows one way: **engine computes everything → JSON bundle → web renders**. Routes are
-`/:source/{dashboard,locations[/:slug],systems/:slug,cardiologists[/:npi],groups[/:id],signals[/:key]}`
+`/:source/{dashboard,locations[/:slug],systems/:slug,cardiologists[/:npi],groups[/:id],signals[/:key],news}`
 with `source ∈ {synthetic, public}` (`public` = Real data, its own layout and pages); `/` is the
 methodology landing page.
 
 ## Commands
 
 ```bash
-.venv/bin/python -m pytest                          # engine tests (82)
-.venv/bin/python -m engine.export_web               # rebuild both bundles (Real data re-pulls CMS: network)
-.venv/bin/python -m engine.export_web --offline     # rebuild; Real data from the cached CMS pulls
+.venv/bin/python -m pytest                          # engine tests (84)
+.venv/bin/python -m engine.export_web               # rebuild both bundles; re-pulls CMS Medicare utilization (network)
+.venv/bin/python -m engine.export_web --offline     # rebuild; Real data from the committed caches in data/cache/
+.venv/bin/python -m engine.backtest                 # back-test + fit (offline) -> data/cache/backtest.json
+.venv/bin/python -m engine.news.real_news           # real news via Claude (network + .env key); cached, re-runs free
+.venv/bin/python -m engine.news.fake                # fictional articles for Synthetic (Claude); cached
 .venv/bin/python -m engine.bundle_check             # validate bundles on disk
 npm --prefix web run typecheck && npm --prefix web test   # TS + vitest (62)
 npm --prefix web run dev                            # http://localhost:5190
 node web/scripts/screenshots.mjs                    # visual QA in real Chrome (dev server up)
 scripts/smoke.sh                                    # the whole ladder, in order
-docker compose up --build -d                        # containerized: exporter -> nginx on :8080
+docker compose up --build -d                        # export -> loader -> Postgres -> api -> nginx on :8080
 docker compose --profile test run --rm tests        # engine suite inside the image
 docker compose up -d db && .venv/bin/alembic upgrade head   # Postgres + schema
 .venv/bin/python -m engine.db.load                  # store raw pulls + bundles (idempotent)
@@ -54,8 +61,9 @@ docker compose up -d db && .venv/bin/alembic upgrade head   # Postgres + schema
 ```
 
 Docker layout: root `Dockerfile` (targets `engine`, `legacy`), `web/Dockerfile` (node build →
-nginx), `web/nginx.conf` (SPA fallback, but `/data/*` must 404 — never HTML), `docker-compose.yml`
-(named volume `bundles` shared exporter → web). Bundles are not baked into the web image.
+nginx), `web/nginx.conf` (SPA fallback; `/data/*` proxied to the api, never HTML), `docker-compose.yml`
+(exporter writes bundles to the `bundles` volume → loader stores them in Postgres → api serves the
+newest export). Bundles are not baked into the web image. `.env` and `data/raw/` never enter an image.
 
 ## Invariants — never break these silently
 
@@ -75,7 +83,9 @@ nginx), `web/nginx.conf` (SPA fallback, but `/data/*` must 404 — never HTML), 
    must never attach to anything mistakable for a real organization
    (`test_d4_system_names_unmistakably_fictional`). Keep counts stable — they drive RNG draws.
 7. **Never put real names on simulated data.** Real data mode shows real records only, each
-   signal labeled by provenance, and scores nothing. A mode that overlaid simulated signals on
+   signal labeled by provenance (exact, stand-in, inferred, assumption, none); nothing is imputed.
+   It shows scores only when `engine/backtest.py` beat chance on held-out doctors, and always next
+   to the back-test's warnings (inferred outcome, failed cross-check). A mode that overlaid simulated signals on
    real NPI-registry identities was removed (`test_no_real_identities_on_simulated_signals`):
    a simulated score next to a real physician reads as a fact about them. Never relabel a
    provider into a subspecialty they don't hold.
@@ -91,12 +101,20 @@ nginx), `web/nginx.conf` (SPA fallback, but `/data/*` must 404 — never HTML), 
 12. **Claims match evidence.** The simulated outcome shares the scorer's hypotheses: copy may
     say it tests the pipeline, never that it validates the hypotheses. Cohorts are
     "candidate" slates; single-signal verdicts need a 95% interval that excludes 0.5.
+13. **News is evidence, not opinion.** An extracted event counts only if Claude's quote is in
+    the article word for word, it's reported as fact, it's in the signal's definition and within
+    36 months (a year named in the quote overrides the claimed date). Article text never ships;
+    the app gets link, headline, quote. Fictional articles name only placeholder systems.
+14. **No look-ahead in the back-test.** Every input must predate its prediction date (CMS
+    snapshot, billing year, Open Payments year, news). The pass rule is fixed before running.
+15. **The Claude key lives only in `.env`** (git- and docker-ignored); never in code, caches,
+    bundles or commits (`test_no_api_key_in_any_published_or_cached_file`).
 
 ## Conventions
 
 - Python: module docstring says *why*; constants UPPER_CASE at top; pure functions over
   DataFrames; `slugify` from `engine.clustering` for every id; no new deps without reason.
-- TS: strict; pages read data only via `useData()`; every entity name renders through
+- TS: strict; pages read data only via `useData()` (Real data pages: `useRealData()`); every entity name renders through
   `components/links.tsx` (that's what makes everything drill-downable); URLs only via
   `lib/paths.ts`; filters live in the URL so they're shareable.
 - Design: `.claude/skills/design-system/SKILL.md` (tokens, validated palettes, chart rules).
@@ -118,6 +136,15 @@ nginx), `web/nginx.conf` (SPA fallback, but `/data/*` must 404 — never HTML), 
   contradicts the label. Use `scoreInt` / one decimal.
 - Project agents in `.claude/agents/` load at session start; mid-session they can be run as
   general-purpose agents that read their definition file first.
+- data.cms.gov/provider-data and openpaymentsdata.cms.gov refuse non-browser clients (403); the
+  same files download fine in real Chrome (`scripts/download_cms.cjs`). download.cms.gov and the
+  data.cms.gov data-api answer plain HTTP.
+- Doctors & Clinicians layouts differ by vintage: 2019 is `Physician_Compare_National_Downloadable_File`,
+  2020 is `mj5m-pzi6.csv`, and up to 2022 hospital affiliations are inline (`hosp_afl_1..5`).
+- Google News RSS links only resolve to the publisher inside a browser (`scripts/fetch_pages.cjs`).
+- Claude dated old events by the article's date ("acquired in 2019" → 2025) and counted
+  power-outage closures until the prompt and the quote-year check were added (`extract-v2`).
+  A declined article is recorded as unread; it must never crash the run.
 
 ## Workflows (skills & agents in this folder)
 

@@ -15,8 +15,11 @@ fails becomes a finding.
 - [ ] Dashboard toggle switches Synthetic ⇄ Real data; KPIs, map and lists all change together.
 - [ ] Toggling on a location / signal / system page keeps you on that entity; on a
       cardiologist or cohort page it lands on the index (ids differ across sources).
-- [ ] Real data pages show no score, rank, window or cohort, and every signal value carries
-      its provenance label (exact, stand-in, inferred, assumption, none).
+- [ ] Real data pages show no window or cohort; scores appear only with the back-test's
+      warnings beside them; every signal value carries its provenance label (exact, stand-in,
+      inferred, assumption, none) and the record behind it.
+- [ ] News pages: every used event shows its verbatim quote and source; fictional articles are
+      stamped fictional and name only placeholder systems.
 - [ ] `/real/dashboard` (the retired real-identities mode) is a not-found.
 
 ## Drill paths (click, don't type URLs)

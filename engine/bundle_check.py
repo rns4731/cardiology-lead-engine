@@ -36,7 +36,8 @@ SCORE_KEYS = {"propensity", "timingScore", "timingBucket", "rank", "percentile",
 
 
 def validate_real(b: dict) -> list[str]:
-    """Real-data bundle: real records only, every signal empty, nothing scored."""
+    """Real-data bundle: real records only; every value backed by a stated fact; scores only
+    behind a passing back-test, each equal to the sum of its parts."""
     from engine.signals import SIGNALS
 
     p: list[str] = []

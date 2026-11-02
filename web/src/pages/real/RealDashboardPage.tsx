@@ -93,9 +93,9 @@ export default function RealDashboardPage() {
           to={paths.locations(S)}
         />
         <StatTile
-          label="Signals with real data"
+          label="Signals filled from real records"
           value={`${filledSignals.length} of 10`}
-          sub={breakdown}
+          sub={`only ${filledSignals.filter((s) => s.status === "real").length} exact · ${breakdown.replace(/^\d+ exact · /, "")}`}
           to={paths.signals(S)}
         />
         {bundle.model ? (
@@ -138,7 +138,7 @@ export default function RealDashboardPage() {
         <Card>
           <CardHeader
             title="By city"
-            subtitle="Listed cardiologists. Not ranked by opportunity: there's no score."
+            subtitle="Listed cardiologists per city (counts, not a ranking of opportunity)."
             action={<TextLink to={paths.locations(S)}>All</TextLink>}
           />
           <div className="px-5 pb-5 pt-4">

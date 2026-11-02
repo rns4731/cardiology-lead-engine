@@ -6,7 +6,7 @@ import { paths } from "../../lib/paths";
 import { ErrorState, LoadingState } from "../ui";
 import { ErrorBoundary } from "./AppShell";
 
-/** Route element for /public/* (Real data): real CMS records only, nothing scored. */
+/** Route element for /public/* (Real data): real public records only; nothing simulated. */
 export function RealDataLayout() {
   const { pathname } = useLocation();
   const manifest = useManifest();

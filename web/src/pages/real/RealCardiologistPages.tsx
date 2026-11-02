@@ -49,7 +49,11 @@ export function RealCardiologistsPage() {
         crumbs={[{ label: "Dashboard", to: paths.dashboard(S) }, { label: "Cardiologists" }]}
         kicker="Directory · real data only"
         title="Cardiologists"
-        subtitle="Everyone on record: real CMS identities, hospital-based by billing setting (inferred). Signals are filled from real records where they exist, but no one is scored or ranked: no weights have a real basis."
+        subtitle={
+          bundle.prediction.available
+            ? "Everyone on record: real CMS identities, hospital-based by billing setting (inferred), ranked by the back-test-fitted score. That score beat chance on an inferred outcome but failed its cross-check: leads to check, not a forecast."
+            : "Everyone on record: real CMS identities, hospital-based by billing setting (inferred). No one is scored: the back-test didn't support it."
+        }
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -96,7 +100,8 @@ export function RealCardiologistsPage() {
         ))}
         {ignored.length > 0 && (
           <span className="text-xs text-amber-700">
-            Score, window and cohort filters don't apply: real data has no score.{" "}
+            Score-floor, window and cohort filters don't apply here (no qualifying floor, timing or cohorts in real data);
+            sort by the score column instead.{" "}
             <button
               className="font-medium underline"
               onClick={() => {

@@ -1,4 +1,4 @@
-"""The "Real data" source: real public records only. Nothing simulated; no score.
+"""The "Real data" source: real public records only. Nothing simulated.
 
 The same ten signals as the synthetic universe (engine/signals.py), each filled from a real
 record where one exists, with an honest label per signal (engine/real_signals.py):
@@ -12,8 +12,11 @@ Who is listed: cardiologists billing Medicare in 2024 whose billing city is one 
 eight cities and who billed at most 20% of services in office settings -- "hospital-based"
 is INFERRED from billing setting, not from employment records.
 
-There are still no weights with a real basis and no real outcome (who actually left), so
-score, ranking, timing windows and candidate groups stay blank rather than estimated.
+Scores: only when the back-test (engine/backtest.py) beat chance on held-out doctors, using
+its fitted weights, and only for physicians with a real value for every input signal (nothing
+is imputed). The back-test's outcome is inferred and it failed its cross-check, so the bundle
+carries those warnings with the scores. Timing windows and candidate groups stay blank:
+contract dates aren't public and no qualifying floor has a real basis.
 """
 from __future__ import annotations
 
@@ -263,8 +266,9 @@ def build_public_bundle(offline: bool = True) -> dict:
             "id": "public", "label": "Real data",
             "description": (f"{len(leads):,} cardiologists in the eight cities whose {YEAR} Medicare billing is mostly in "
                             f"hospital settings, from public CMS records. {filled} of the ten signals are filled from real "
-                            "data (each labeled exact, stand-in, inferred or assumption); nothing is simulated, and "
-                            "nothing is scored."),
+                            "records (each labeled exact, stand-in, inferred or assumption); nothing is simulated. "
+                            + ("Scores use back-test weights on an inferred outcome: leads to check, not a forecast."
+                               if bt and bt["verdict"]["passed"] else "Nothing is scored.")),
             "provenance": {
                 "identity": f"real (CMS Medicare Physician & Other Practitioners, by Provider, {YEAR})",
                 "location": "real (Medicare billing address)",

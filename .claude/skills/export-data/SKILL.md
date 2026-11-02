@@ -17,8 +17,10 @@ The dev server serves them directly — reload the browser; no rebuild needed.
 
 ## How the Real data source works
 - `engine/real_data.build_public_bundle` builds it from cached CMS pulls
-  (`data/cache/public_raw.json.gz` plus the directory, work-RVU, Open Payments and news caches).
-  Without `--offline` it re-pulls the CMS records first (network; sandbox disabled here).
+  (`data/cache/public_raw.json.gz` plus the directory, work-RVU, Open Payments, news and
+  back-test caches). Without `--offline` it re-pulls the CMS Medicare utilization records first
+  (network; sandbox disabled here). The other inputs refresh with their own modules (README,
+  *Refreshing the real inputs*); rerun `engine.backtest` after any change to the signals.
 - A source that fails to build keeps its previous bundle (manifest `stale: true`) or is
   marked unavailable, and the dashboard toggle disables it.
 - There is no mode that puts real names on simulated signals — don't add one back.

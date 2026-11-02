@@ -4,7 +4,8 @@
 #   open http://localhost:8080
 #   docker compose --profile test run --rm tests  # engine test suite in the container
 #   docker compose --profile legacy up -d         # + the original Streamlit demo on :8501
-#   docker compose run --rm exporter python -m engine.export_web   # re-pull the CMS records (network)
+#   docker compose run --rm exporter python -m engine.export_web   # re-pull CMS Medicare utilization (network)
+#   docker compose run --rm loader                                  # ...then store it; the api serves the newest
 #   docker compose exec db psql -U leads leads    # query the Postgres store
 #
 # Same architecture as the app: the engine computes everything, the web tier only renders.

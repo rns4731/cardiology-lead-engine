@@ -21,7 +21,7 @@ SIGNALS = {
                      "real-world trigger for a physician to leave. The signal decays as the "
                      "event recedes.",
         "formula": "exp(-months_since_event / 12); 0 when the employer has no event",
-        "production_source": "M&A / distress news and filings — not connected (not attempted).",
+        "production_source": "M&A / distress news and filings. Connected in Real data mode: news read by Claude (quotes verified word for word) plus CMS hospital ownership changes, tied to the billing group or affiliated hospitals.",
         "public": True,
     },
     "career_stage": {
@@ -29,7 +29,7 @@ SIGNALS = {
         "rationale": "The ~10-22 year sweet spot: established enough to carry a book of "
                      "business, early enough to want to build something.",
         "formula": "exp(-((years_in_practice - 15) / 8)^2)",
-        "production_source": "NPPES enumeration date or board-certification year — not connected (not attempted).",
+        "production_source": "Years in practice (training completion) isn't public. Real data mode uses graduation year from CMS Doctors & Clinicians as a stand-in.",
         "public": True,
     },
     "prior_independent": {
@@ -37,7 +37,7 @@ SIGNALS = {
         "rationale": "Has practiced independently before -- dramatically lower friction "
                      "to do it again.",
         "formula": "1 if any prior independent affiliation, else 0",
-        "production_source": "Past group affiliations (CMS Doctors & Clinicians archives; PECOS) — not connected. The Doctors & Clinicians endpoints returned 403 from this environment.",
+        "production_source": "Past group affiliations. Connected in Real data mode: CMS Doctors & Clinicians snapshots 2019-2026 (downloaded through a real browser), with \"independent-style\" inferred by a stated rule.",
         "public": True,
     },
     "subspecialty_econ": {
@@ -45,14 +45,14 @@ SIGNALS = {
         "rationale": "Procedure-heavy subspecialties (interventional, EP) sustain independent "
                      "economics; advanced heart failure is hospital-dependent.",
         "formula": "lookup: Interventional 1.00, EP 0.95, Imaging 0.65, General cardiology 0.60, AHF 0.35",
-        "production_source": "NPI taxonomy (subspecialty) with a fixed economics lookup; the lookup values are an assumption. Simulated in Synthetic mode.",
+        "production_source": "Subspecialty (Medicare provider type; real in Real data mode) with a fixed economics lookup. The lookup values are an assumption. Simulated in Synthetic mode.",
         "public": True,
     },
     "productivity": {
         "level": "individual",
         "rationale": "High work-RVU producers can sustain a practice of their own.",
         "formula": "wRVU percentile / 100",
-        "production_source": "Work RVUs (internal productivity data) — not connected. CMS Medicare Physician & Other Practitioners publishes Medicare-only allowed amounts, which are not wRVUs.",
+        "production_source": "All-payer work RVUs are internal data, not public. Real data mode uses Medicare work RVUs (CMS billing x fee-schedule work RVUs) as a stand-in.",
         "public": True,
     },
     "peer_left": {
@@ -60,7 +60,7 @@ SIGNALS = {
         "rationale": "A local colleague who just went independent is powerful social proof "
                      "and opens the window now.",
         "formula": "1 if a same-metro peer changed to an independent affiliation recently",
-        "production_source": "Affiliation changes over time (CMS Doctors & Clinicians archives) — not connected; returned 403 from this environment.",
+        "production_source": "Colleagues' affiliation changes. Connected in Real data mode: billing-group moves across CMS Doctors & Clinicians snapshots, \"independent-style\" inferred.",
         "public": True,
     },
     "independent_density": {
@@ -68,14 +68,14 @@ SIGNALS = {
         "rationale": "An existing independent ecosystem supplies referral and operational "
                      "scaffolding.",
         "formula": "independent cardiology groups in metro / 8 (capped at 1)",
-        "production_source": "Independent cardiology group counts (CMS Doctors & Clinicians) — not connected; returned 403 from this environment.",
+        "production_source": "Independent cardiology groups per city. Inferred in Real data mode from CMS Doctors & Clinicians groups and their billing settings.",
         "public": True,
     },
     "recent_employer_change": {
         "level": "individual",
         "rationale": "Recently moved -- already in motion and more open to another change.",
         "formula": "exp(-months_since_last_employer_change / 18)",
-        "production_source": "CMS PECOS reassignment records — not connected (not attempted).",
+        "production_source": "Employer changes aren't public. Real data mode uses billing-group (reassignment) changes across CMS Doctors & Clinicians snapshots as a stand-in.",
         "public": True,
     },
     "contract_window": {
@@ -89,7 +89,7 @@ SIGNALS = {
         "level": "individual",
         "rationale": "Industry engagement is a proxy for an entrepreneurial posture.",
         "formula": "clip((ln(open_payments_usd + 1) - 5) / 5, 0, 1)",
-        "production_source": "CMS Open Payments — not connected; its query API returned 403 from this environment.",
+        "production_source": "CMS Open Payments. Connected in Real data mode (2025 bulk file; 2021 for the back-test).",
         "public": True,
     },
 }

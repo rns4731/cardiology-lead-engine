@@ -52,7 +52,9 @@ Severity is about **impact on what a reader concludes**, not code size.
 
 - Modest AUC (~0.62) with strong top-of-list lift — by design (noise term).
 - Weights are domain-set, not fitted — learning them on a simulated label would be circular.
-- Real mode lacks Imaging / Advanced Heart Failure — NLM taxonomy gap, documented.
+- Real data has no Imaging subspecialty — the four CMS cardiology provider types don't include one.
+- Real data scores rest on a back-test with an inferred outcome and a failed cross-check — shown
+  as leads to check with those warnings, by design.
 - Cohorts can leave a "bench" of qualified-but-unplaced cardiologists.
 - `build_groups` (top-N per metro) coexists with `form_cohorts` for the Streamlit app.
 - Precision@50 and small sweep cells are **withheld** by disclosure control — not a bug.

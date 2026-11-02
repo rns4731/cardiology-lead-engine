@@ -125,13 +125,14 @@ const BUILT = [
   "A plain-language rationale behind every lead",
   "Candidate cohorts: disjoint founding slates of 5–8 per metro, with who would strengthen each",
   "An evaluation harness: hit rates with uncertainty ranges, a best-achievable benchmark, and small-number suppression",
-  "A real-data mode: nine of the ten signals from CMS records (billing groups 2019–2026, work RVUs, Open Payments), each labeled exact, stand-in, inferred or assumption",
+  "A real-data mode: nine of the ten signals from public records (CMS billing groups 2019–2026, work RVUs, Open Payments, ownership changes, news), only one of them exact; each labeled exact, stand-in, inferred or assumption",
+  "A back-test on real data: weights fitted to who moved between 2022 and 2024. It beat chance but failed its cross-check, so its scores are shown as leads to check",
   "A news pipeline: Claude reads articles about each employer; an event counts only if its quote is in the article word for word. Fictional articles test it in the synthetic mode",
 ];
 const DEFERRED = [
   ["Contact find & verify", "A mature enrichment-vendor problem — integrate, don't rebuild."],
   ["Outreach & interest-gauging", "Needs conversation data that doesn't exist yet; risks feeling like spam."],
-  ["Learned weights", "Wait for real outcomes; fitting to a simulated label would be circular."],
+  ["Trustworthy learned weights", "The real-data back-test fits to an inferred outcome and failed its cross-check; weights worth trusting need confirmed moves from outreach."],
 ];
 
 function Problem() {

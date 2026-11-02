@@ -7,7 +7,8 @@
 
 Writes web/public/data/<source>/bundle.json and web/public/data/manifest.json.
 The "public" source (Real data) is built by engine/real_data.py from cached CMS pulls:
-real records only, signals labeled by provenance, nothing scored. If a source fails to
+real records only, signals labeled by provenance, scored only behind a passing back-test
+(engine/backtest.py), with its warnings. If a source fails to
 build, a previously exported bundle is kept and flagged stale rather than lost.
 
 There is deliberately no mode that puts real names on simulated signals: a simulated

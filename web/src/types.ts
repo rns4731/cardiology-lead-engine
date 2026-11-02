@@ -311,8 +311,9 @@ export interface RealNews {
 }
 
 // ---------------------------------------------------------------------------------
-// Real data source (`public`): written by engine/real_data.py. Real CMS records only;
-// the same ten signals, every value null (no real source connected), nothing scored.
+// Real data source (`public`): written by engine/real_data.py. Real public records only;
+// the same ten signals, each labeled by provenance (null = no real value); scores only
+// when the back-test (engine/backtest.py) passed.
 
 export interface RealLead {
   npi: number;

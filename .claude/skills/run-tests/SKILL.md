@@ -16,11 +16,11 @@ a green run means something:
 
 | # | Rung | Command | Proves | Typical failure → where to look |
 |---|---|---|---|---|
-| 1 | Engine unit | `.venv/bin/python -m pytest` | scoring arithmetic, timing cutoffs, label independence, cohort bounds/disjointness/determinism, related/candidate rules, locked seed-42 metrics, one regression per review finding (82) | `test_seed42_metrics_locked` → you changed numbers; intentional? update docs |
+| 1 | Engine unit | `.venv/bin/python -m pytest` | scoring arithmetic, timing cutoffs, label independence, cohort bounds/disjointness/determinism, related/candidate rules, locked seed-42 metrics, one regression per review finding, news-pipeline rules, back-test rules (84) | `test_seed42_metrics_locked` → you changed numbers; intentional? update docs |
 | 2 | Rebuild | `python -m engine.export_web --offline` | the current engine produces bundles (Real data rebuilt from the cached CMS pulls) | exporter raises `bundle failed validation` → rung 3 explains |
 | 3 | Contract | `python -m engine.bundle_check` | referential integrity across leads/groups/metros/systems/signals, no NaN, no label leak, contributions sum to score | a new field the UI dereferences isn't validated → add a rule |
 | 4 | Typecheck | `npm --prefix web run typecheck` | `types.ts` and every page agree | shape changed in Python but not in `types.ts` |
-| 5 | Web tests | `npm --prefix web test` | lib units; **every page type renders for every exported source** with real ids; not-found paths; **link crawl** from the dashboard reaches all 10 page types with no dead ends (62) | `crawl.test.tsx` → a link points somewhere that 404s |
+| 5 | Web tests | `npm --prefix web test` | lib units; **every Synthetic page type renders** with real ids; not-found paths; **link crawl** from the dashboard with no dead ends (62). Real data pages aren't in vitest; rung 7 renders five of them | `crawl.test.tsx` → a link points somewhere that 404s |
 | 6 | Build | `npm --prefix web run build` | production bundle compiles | — |
 | 7 | Visual | `node web/scripts/screenshots.mjs` (dev server up) | 17 pages load in real Chrome with zero console errors and no error boundary; PNGs in `outputs/screens/` | then **look at them** — rung 8 |
 | 8 | Eyes | `qa-checklist.md` | what automation can't judge: overlap, truncation, misleading charts, honesty copy | — |

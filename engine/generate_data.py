@@ -1,14 +1,16 @@
 """Synthetic universe of hospital-employed cardiologists.
 
-Every field is modeled on a *publicly derivable* signal so this prototype maps
-cleanly onto a real data pipeline:
+Every field is modeled on a *publicly derivable* signal, and the Real data mode now builds
+most of them from real records (engine/real_signals.py):
 
-    NPI / specialty / practice location   -> NPPES NPI Registry (public)
-    subspecialty, employer, affiliation    -> NPPES + CMS PECOS + hospital directories
-    productivity (work RVU percentile)      -> CMS Medicare Physician & Other Practitioners
+    specialty / practice location          -> CMS Medicare utilization (provider type, address)
+    employer, affiliation, career stage     -> CMS Doctors & Clinicians: billing group, hospital
+                                               affiliations, graduation year (stand-ins)
+    productivity (work RVU percentile)      -> Medicare services x CMS work RVUs (Medicare only)
     industry engagement ($)                 -> CMS Open Payments
-    system disruption (M&A, distress)       -> news / SEC / state AG filings (modeled)
-    peer movement, independent density       -> NPPES affiliation deltas over time (modeled)
+    system disruption (M&A, distress)       -> news read by Claude + CMS ownership changes
+    peer movement, independent density       -> billing-group changes across CMS snapshots (inferred)
+    contract window                          -> not public
 
 No real physician data is used (per the brief: public or synthetic only, no PHI).
 A latent `will_move_24mo` label is embedded from the *true* drivers plus noise so

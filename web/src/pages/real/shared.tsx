@@ -145,7 +145,7 @@ export type RealSortKey = "name" | "metro" | "subspecialty" | "office" | "filled
 
 export const filled = (l: RealLead) => Object.values(l.values).filter((v) => v != null).length;
 
-/** Directory table for real records. No score column to sort by -- there is no score. */
+/** Directory table for real records; sorted by the back-test score when one exists. */
 export function RealLeadTable({
   leads,
   pageSize = 25,

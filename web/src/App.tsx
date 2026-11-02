@@ -39,7 +39,7 @@ export function AppRoutes() {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<LandingPage />} />
-        {/* Real data: its own layout and pages (real records, empty signals, no score).
+        {/* Real data: its own layout and pages (real records; scores only behind a passing back-test).
             A static segment outranks :source, so /public/* always lands here. */}
         <Route path="public" element={<RealDataLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
