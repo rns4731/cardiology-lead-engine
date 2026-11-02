@@ -41,24 +41,37 @@ methodology landing page.
 
 ## Commands
 
+The app runs and is tested in Docker; there is no project venv.
+
 ```bash
-.venv/bin/python -m pytest                          # engine tests (84)
-.venv/bin/python -m engine.export_web               # rebuild both bundles; re-pulls CMS Medicare utilization (network)
-.venv/bin/python -m engine.export_web --offline     # rebuild; Real data from the committed caches in data/cache/
-.venv/bin/python -m engine.backtest                 # back-test + fit (offline) -> data/cache/backtest.json
-.venv/bin/python -m engine.news.real_news           # real news via Claude (network + .env key); cached, re-runs free
-.venv/bin/python -m engine.news.fake                # fictional articles for Synthetic (Claude); cached
-.venv/bin/python -m engine.bundle_check             # validate bundles on disk
-npm --prefix web run typecheck && npm --prefix web test   # TS + vitest (62)
-npm --prefix web run dev                            # http://localhost:5190
-node web/scripts/screenshots.mjs                    # visual QA in real Chrome (dev server up)
-scripts/smoke.sh                                    # the whole ladder, in order
-docker compose up --build -d                        # export -> loader -> Postgres -> api -> nginx on :8080
-docker compose --profile test run --rm tests        # engine suite inside the image
-docker compose up -d db && .venv/bin/alembic upgrade head   # Postgres + schema
-.venv/bin/python -m engine.db.load                  # store raw pulls + bundles (idempotent)
-.venv/bin/alembic revision --autogenerate -m "..."  # after changing engine/db/models.py
+docker compose up --build -d                        # build, export, load, serve: :8080 (rerun after any code change)
+docker compose --profile test run --rm tests        # engine tests (84), against the exported bundles
+docker compose run --rm --no-deps exporter python -m engine.bundle_check   # validate the bundles
+docker compose logs exporter loader                 # what the one-shot jobs did
+docker compose exec db psql -U leads leads          # query the Postgres store
+docker compose run --rm exporter python -m engine.export_web   # re-pull CMS Medicare utilization (network) ...
+docker compose run --rm loader                      # ... then store it; the api serves the newest export
+docker compose down                                 # stop (-v drops the data volumes)
 ```
+
+Host-only (any Python 3.12+ with `requirements.txt`; Node 20+). These can't run in Docker
+because they write to `data/cache/` or the repo (the image holds a copy of `data/`), need a real
+browser, or need `.env`. After changing `data/cache/`, rerun `docker compose up --build -d`.
+
+```bash
+npm --prefix web run typecheck && npm --prefix web test   # TS + vitest (62)
+npm --prefix web run dev                            # http://localhost:5190 (reads web/public/data)
+node web/scripts/screenshots.mjs                    # visual QA in real Chrome (dev server up)
+scripts/smoke.sh                                    # the whole ladder (PY=... to pick a Python)
+python -m engine.export_web --offline               # write bundles to web/public/data for the dev server
+python -m engine.backtest                           # back-test + fit -> data/cache/backtest.json
+python -m engine.news.real_news                     # real news via Claude (network + .env key); cached
+python -m engine.news.fake                          # fictional articles for Synthetic (Claude); cached
+alembic revision --autogenerate -m "..."            # after changing engine/db/models.py (db on :5432)
+```
+
+The full refresh of the real inputs (CMS directory downloads, Open Payments, work RVUs) is in the
+README under *Refreshing the real inputs*.
 
 Docker layout: root `Dockerfile` (targets `engine`, `legacy`), `web/Dockerfile` (node build →
 nginx), `web/nginx.conf` (SPA fallback; `/data/*` proxied to the api, never HTML), `docker-compose.yml`
@@ -130,7 +143,7 @@ newest export). Bundles are not baked into the web image. `.env` and `data/raw/`
 - `useParams()` in a parent layout route can't see child params — the nav parses the path.
 - `LeadTable` resets pagination on a content *signature*, not array identity.
 - jsdom: `import.meta.url` isn't `file:` — tests resolve from `process.cwd()`.
-- Network calls (live export, npm/pip install) need the sandbox disabled in this env.
+- Network calls (Docker builds and runs, live export, npm installs, Claude API) need the sandbox disabled in this env.
 - `np.histogram` float edges put exact values like 0.6 in the bin below — use `bin_counts`.
 - `toFixed(0)` rounds 54.8 to "55" and 64.9 to "65": next to a 55 floor or a 65 cutoff that
   contradicts the label. Use `scoreInt` / one decimal.
