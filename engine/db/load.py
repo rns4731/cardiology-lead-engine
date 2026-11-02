@@ -34,6 +34,7 @@ from engine.db import get_engine
 from engine.db.models import (
     Cohort,
     CohortMember,
+    ExportManifest,
     ExportRun,
     IngestRun,
     Lead,
@@ -77,7 +78,8 @@ def content_sha256(obj) -> str:
 
 def _stored(conn: Connection, sha: str) -> bool:
     return conn.execute(select(IngestRun.id).where(IngestRun.content_sha256 == sha).union_all(
-        select(ExportRun.id).where(ExportRun.bundle_sha256 == sha)).limit(1)).first() is not None
+        select(ExportRun.id).where(ExportRun.bundle_sha256 == sha),
+        select(ExportManifest.id).where(ExportManifest.content_sha256 == sha)).limit(1)).first() is not None
 
 
 def require_head(conn: Connection) -> None:
@@ -226,6 +228,17 @@ def load_bundle(conn: Connection, b: dict, sha: str | None = None) -> int | None
     return run
 
 
+def load_manifest(conn: Connection, manifest: dict, sha: str | None = None) -> int | None:
+    """Store the exporter's manifest.json. None if this exact manifest is already stored."""
+    if not isinstance(manifest.get("sources"), list) or not all("id" in s for s in manifest["sources"]):
+        raise ValueError("manifest has no sources list")
+    sha = sha or content_sha256(manifest)
+    if conn.execute(select(ExportManifest.id).where(ExportManifest.content_sha256 == sha)).first():
+        return None
+    return conn.execute(insert(ExportManifest).values(content_sha256=sha, document=manifest)
+                        .returning(ExportManifest.id)).scalar_one()
+
+
 def _bundle_paths(root: str) -> list[tuple[str, str]]:
     """(source id, path) for every available bundle, in manifest order."""
     manifest = os.path.join(root, "manifest.json")
@@ -272,6 +285,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_bundles:
         for sid, path in _bundle_paths(args.bundles):
             step(f"{sid} (bundle)", load_bundle, path)
+        if os.path.exists(manifest := os.path.join(args.bundles, "manifest.json")):
+            step("manifest", load_manifest, manifest)
 
     with engine.connect() as conn:
         runs = conn.execute(select(func.count()).select_from(ExportRun)).scalar_one()

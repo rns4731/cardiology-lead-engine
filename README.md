@@ -23,7 +23,8 @@ open http://localhost:8080
 | `migrate` | one-shot `alembic upgrade head`: creates / migrates the tables |
 | `exporter` | one-shot Python engine: scores both universes, writes the JSON bundles to a shared volume (offline; real identities come from the committed cache) |
 | `loader` | one-shot: stores the cached public pulls and every bundle in Postgres (idempotent) |
-| `web` | nginx serving the production React build; mounts the bundles read-only; starts only after the exporter succeeds; healthy once `/data/manifest.json` is served |
+| `api` | serves `/data/manifest.json` and `/data/<source>/bundle.json` from Postgres (each source's current export) |
+| `web` | nginx serving the production React build; proxies `/data/*` to the api; healthy once `/data/manifest.json` is served from Postgres |
 | `tests` *(profile)* | `docker compose --profile test run --rm tests` — the engine suite inside the image |
 | `streamlit` *(profile)* | `docker compose --profile legacy up -d` — the original demo on :8501 |
 
@@ -42,7 +43,7 @@ npm --prefix web install
 npm --prefix web run dev                          # → http://localhost:5190
 ```
 
-Postgres (optional locally; the web app never reads it) — see [docs/database.md](docs/database.md):
+Postgres (Docker serves the app from it; optional for local dev) — see [docs/database.md](docs/database.md):
 
 ```bash
 docker compose up -d db && .venv/bin/alembic upgrade head && .venv/bin/python -m engine.db.load

@@ -1,6 +1,6 @@
-# Web image: production React build served by nginx. Data bundles are NOT baked in --
-# compose mounts the exporter's volume at /usr/share/nginx/html/data, so the engine can
-# refresh data without rebuilding this image.
+# Web image: production React build served by nginx. Data is NOT baked in -- nginx
+# proxies /data/ to the compose `api` service, which reads it from Postgres, so the
+# engine can refresh data without rebuilding this image.
 FROM node:22-slim AS build
 WORKDIR /web
 COPY package.json package-lock.json ./

@@ -19,12 +19,14 @@ engine/ (Python, numpy+pandas)          web/ (React 18 + TS + Vite + Tailwind v4
   evaluate.py       precision/lift/AUC    web/public/data/<source>/bundle.json  ← the contract
   export_web.py     → bundles + manifest  web/public/data/manifest.json
   bundle_check.py   contract validator
-  db/               Postgres store: models.py, load.py, read.py, migrations/ (Alembic)
+  db/               Postgres store: models.py, load.py, read.py, serve.py, migrations/
 run.py, app.py (Streamlit — legacy demo, leave as is), tests/ (pytest)
 ```
 
 Postgres is the engine's system of record (raw pulls + every export run + outreach outcomes);
-`engine.db.load` stores what the engine already wrote. The web never reads the database.
+`engine.db.load` stores what the engine already wrote. In Docker the app is served from it:
+nginx proxies `/data/*` to `engine.db.serve`, which returns each source's current export in
+the bundle format (the Vite dev server still reads `web/public/data`).
 Change `engine/db/models.py` ⇒ add an Alembic revision (`test_models_match_the_migrations`).
 See docs/database.md.
 

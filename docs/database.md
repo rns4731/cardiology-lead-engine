@@ -2,7 +2,8 @@
 
 Postgres is the engine's system of record. The engine still computes everything and writes
 JSON bundles for the web; `engine.db.load` stores those outputs plus the raw public pulls,
-so history is kept and outreach outcomes have a home. The web never reads the database.
+so history is kept and outreach outcomes have a home. In Docker the app is served from it:
+browser → nginx `:8080` → `api` (`engine.db.serve`) → Postgres.
 
 ## Run it
 
@@ -13,7 +14,8 @@ docker compose up -d db                       # Postgres 17 on localhost:5432 (u
 docker compose exec db psql -U leads leads    # query it
 ```
 
-In Docker, `docker compose up --build -d` runs `migrate` → `exporter` → `loader` automatically.
+In Docker, `docker compose up --build -d` runs `migrate` → `exporter` → `loader` → `api` → `web`.
+Locally: `.venv/bin/python -m engine.db.serve` serves the same files on `localhost:8000/data/`.
 `DATABASE_URL` overrides the connection (default `postgresql+psycopg://leads:leads@localhost:5432/leads`).
 
 ## Tables
@@ -26,6 +28,7 @@ In Docker, `docker compose up --build -d` runs `migrate` → `exporter` → `loa
 | | `cms_hospital`, `cms_ownership_change` | hospital (CCN → city); change-of-ownership event |
 | | `npi_identity` | cardiologist from the NIH/NLM NPI registry |
 | Engine outputs | `export_run` | exported bundle (`synthetic`, `real`, `public`) |
+| | `export_manifest` | exporter's manifest.json (source order, labels, default) |
 | | `lead`, `lead_contribution` | lead per run; points per signal |
 | | `signal`, `cohort`, `cohort_member`, `metro_summary` | signal, candidate cohort, member, metro per run |
 | Team input | `outreach_event` | contact attempt and its outcome (`no_response` … `joined`) |
@@ -33,6 +36,14 @@ In Docker, `docker compose up --build -d` runs `migrate` → `exporter` → `loa
 
 Every engine-output row keeps its full bundle record as JSONB, so `engine.db.read.bundle()`
 rebuilds a bundle exactly; `read.public_raw()` / `read.identities()` do the same for the caches.
+
+## Serving
+
+`engine.db.serve` answers `/data/manifest.json` and `/data/<source>/bundle.json` with the bundle
+format the web already reads, so no web code changed. Each bundle is the source's latest export
+(`current_export_run`); the manifest lists only sources the database can deliver. Responses carry
+`X-Data-Source: postgres; export_run=<id>`. Unknown paths are a JSON 404, a down api a JSON 503 —
+never HTML. Refresh the data with `docker compose up --build -d` (re-export → load → served).
 
 ## Rules
 

@@ -15,7 +15,7 @@ from sqlalchemy import select, text
 from sqlalchemy.engine import Connection
 
 from engine.db.load import CMS_TABLES, IDENTITY, NORMALIZED
-from engine.db.models import Cohort, ExportRun, IngestRun, Lead, MetroSummary, Signal
+from engine.db.models import Cohort, ExportManifest, ExportRun, IngestRun, Lead, MetroSummary, Signal
 
 _RECORDS = {"leads": Lead, "signals": Signal, "groups": Cohort, "metros": MetroSummary}
 
@@ -102,3 +102,37 @@ def current_leads(conn: Connection, source_id: str) -> pd.DataFrame:
     cols = "npi, name, metro, subspecialty, employer, propensity, timing_score, timing_bucket, rank"
     rows = conn.execute(text(f"SELECT {cols} FROM current_lead WHERE source_id = :s ORDER BY position"), {"s": source_id})
     return pd.DataFrame(rows.fetchall(), columns=[c.strip() for c in cols.split(",")])
+
+
+def current_runs(conn: Connection) -> dict[str, int]:
+    """source id -> id of its current (latest) export run."""
+    return dict(conn.execute(text("SELECT source_id, id FROM current_export_run")).all())
+
+
+def served_manifest(conn: Connection) -> dict:
+    """The manifest the app gets: the exporter's latest manifest (order, labels, default),
+    with each source's availability and counts taken from the export actually being
+    served -- so the manifest never lists a source the database can't deliver."""
+    stored = conn.execute(select(ExportManifest.document).order_by(ExportManifest.id.desc()).limit(1)).scalar()
+    current = {sid: src for sid, src in conn.execute(
+        text("SELECT source_id, document->'source' FROM current_export_run")).all()}
+    entries = stored["sources"] if stored else [{"id": sid, "label": current[sid].get("label", sid),
+                                                 "description": current[sid].get("description", "")}
+                                                for sid in sorted(current)]
+    sources = []
+    for e in entries:
+        src = current.get(e["id"])
+        entry = {k: e[k] for k in ("id", "label", "description") if k in e}
+        if src is None:
+            entry.update(available=False, error="not loaded into Postgres")
+        else:
+            entry.update(available=True, count=src["count"], generatedAt=src["generatedAt"],
+                         failedQueries=len(src.get("failedQueries", [])),
+                         **({"fetchedAt": src["fetchedAt"]} if "fetchedAt" in src else {}))
+            if e.get("generatedAt") == src["generatedAt"]:  # the exporter's flags describe this export
+                entry.update({k: e[k] for k in ("stale", "error") if k in e})
+        sources.append(entry)
+    default = stored["default"] if stored else (sources[0]["id"] if sources else None)
+    schema = stored["schemaVersion"] if stored else conn.execute(
+        text("SELECT max(schema_version) FROM current_export_run")).scalar()
+    return {"schemaVersion": schema, "default": default, "sources": sources}

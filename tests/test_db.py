@@ -202,3 +202,66 @@ def test_outreach_outcomes_are_constrained(db):
         c.execute(OutreachEvent.__table__.insert().values(npi=1000000001, outcome="maybe"))
     with db.connect() as c:
         assert _count(c, OutreachEvent) == 1
+
+
+# ------------------------------------------------------------- serving the app
+@pytest.fixture
+def api(db):
+    import threading
+
+    from engine.db.serve import DataServer
+
+    server = DataServer(("127.0.0.1", 0), db)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+    server.server_close()
+
+
+def _get(url: str) -> tuple[int, dict, dict]:
+    import urllib.error
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:
+            return r.status, dict(r.headers), json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), json.loads(e.read())
+
+
+def test_api_serves_the_current_bundle_and_a_consistent_manifest(db, api):
+    b = _bundle("synthetic")
+    with open(os.path.join(load.BUNDLES, "manifest.json")) as f:
+        manifest = json.load(f)
+    newer = copy.deepcopy(b)
+    newer["source"]["generatedAt"] = "2099-01-01T00:00:00+00:00"
+    with db.begin() as c:
+        load.load_bundle(c, b)
+        latest = load.load_bundle(c, newer)
+        load.load_manifest(c, manifest)
+
+    status, headers, body = _get(f"{api}/data/synthetic/bundle.json")
+    assert status == 200 and body == newer  # the latest export, exactly as exported
+    assert headers["X-Data-Source"] == f"postgres; export_run={latest}"
+
+    status, _, served = _get(f"{api}/data/manifest.json")
+    assert status == 200 and served["default"] == manifest["default"]
+    entries = {s["id"]: s for s in served["sources"]}
+    assert [s["id"] for s in served["sources"]] == [s["id"] for s in manifest["sources"]]
+    assert entries["synthetic"]["available"] is True
+    assert entries["synthetic"]["generatedAt"] == newer["source"]["generatedAt"]
+    assert entries["synthetic"]["count"] == len(b["leads"])
+    for sid, e in entries.items():  # never advertise a source the database can't deliver
+        if sid != "synthetic":
+            assert e["available"] is False
+            assert _get(f"{api}/data/{sid}/bundle.json")[0] == 404
+
+
+def test_api_never_answers_with_html_or_a_guess(db, api):
+    for path in ("/data/nope/bundle.json", "/data/../etc/passwd", "/data/synthetic/other.json", "/"):
+        status, headers, body = _get(api + path)
+        assert status == 404 and headers["Content-Type"] == "application/json" and "error" in body
+    assert _get(f"{api}/healthz")[0] == 503  # empty database: not ready
+    with db.begin() as c:
+        load.load_bundle(c, _bundle("synthetic"))
+    assert _get(f"{api}/healthz")[0] == 200

@@ -162,6 +162,16 @@ class ExportRun(Base):
     )
 
 
+class ExportManifest(Base):
+    """The exporter's manifest.json (source order, labels, descriptions, default). The API
+    serves a manifest built from it plus whichever export of each source is current."""
+    __tablename__ = "export_manifest"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    loaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    content_sha256: Mapped[str] = mapped_column(Text, unique=True)
+    document: Mapped[dict] = mapped_column(JSONB)
+
+
 def _export_fk() -> ForeignKey:
     return ForeignKey("export_run.id", ondelete="CASCADE")
 
