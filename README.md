@@ -1,6 +1,7 @@
 # Independent-Cardiology Lead Engine
 
-A prototype for a PE-backed cardiology platform's growth team: **find which
+A prototype for the growth team of a cardiology platform that partners with cardiologists who want
+to practice independently: **find which
 hospital-employed cardiologists are likely to move to independent practice, when their
 window opens, and how they cluster into viable founding groups of 5+** — every score
 explained, every number drill-downable.

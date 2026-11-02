@@ -1,6 +1,7 @@
 # CLAUDE.md — Independent-Cardiology Lead Engine
 
-Prototype for a PE-backed cardiology platform's growth team: find hospital-employed
+Prototype for the growth team of a cardiology platform that partners with cardiologists who want to
+practice independently: find hospital-employed
 cardiologists likely to go independent, **when** their window opens, and how they
 cluster into viable founding groups of 5+. Built for a Principal AI Engineer case
 exercise — the audience is an executive, so correctness *and* honesty of every number
