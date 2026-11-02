@@ -78,7 +78,8 @@ SOURCES = {
         "label": "Real data",
         "description": "Real cardiologists from public CMS Medicare records, hospital-based by billing setting "
                        "(inferred). The same ten signals, filled from real records where they exist and labeled "
-                       "by provenance; no real outcome to fit weights to, so nothing is scored.",
+                       "by provenance. Scores use weights from a back-test on an inferred outcome (Oct 2022 -> Oct "
+                       "2024); they beat chance there but failed the cross-check, so they are leads to check.",
         "provenance": {},
     },
 }

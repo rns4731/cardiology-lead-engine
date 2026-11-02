@@ -12,7 +12,7 @@ import { ChartFrame, Tip } from "../../components/charts/ChartFrame";
 import { BubbleMap } from "../../components/charts/USMap";
 import { BarList } from "../../components/charts/BarList";
 import { StackedBar } from "../../components/charts/StackedBar";
-import { Blank, BlankOutputs, OfficeShareNote, RealLeadTable, SignalCoverage, useRealSubspecialties } from "./shared";
+import { BacktestCard, Blank, BlankOutputs, OfficeShareNote, RealLeadTable, SignalCoverage, useRealSubspecialties } from "./shared";
 
 const S = "public" as const;
 
@@ -98,7 +98,19 @@ export default function RealDashboardPage() {
           sub={breakdown}
           to={paths.signals(S)}
         />
-        <StatTile label="Propensity score" value={<Blank />} sub="no weights with a real basis" />
+        {bundle.model ? (
+          <StatTile
+            label="Back-test (top 50)"
+            value={bundle.model.metrics.topK["50"] ? `${bundle.model.metrics.topK["50"].lift.toFixed(1)}×` : "—"}
+            sub={
+              bundle.model.verdict.passed
+                ? `${pct(bundle.model.metrics.topK["50"]?.precision)} moved vs ${pct(bundle.model.population.baseRate, 1)}; cross-check failed`
+                : "didn't beat chance: no scores"
+            }
+          />
+        ) : (
+          <StatTile label="Propensity score" value={<Blank />} sub="no weights with a real basis" />
+        )}
         <StatTile label="Candidate cohorts" value={<Blank />} sub="need a score to qualify anyone" to={paths.groups(S)} />
         <StatTile label="Window open now" value={<Blank />} sub="no timing data" />
       </div>
@@ -174,9 +186,16 @@ export default function RealDashboardPage() {
         </Card>
       )}
 
+      {bundle.model && (
+        <>
+          <SectionTitle>Does it predict? The back-test</SectionTitle>
+          <BacktestCard />
+        </>
+      )}
+
       <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
         <div className="lg:col-span-2">
-          <BlankOutputs title="What needs a score: all blank" />
+          <BlankOutputs />
         </div>
         <div className="space-y-6 lg:col-span-3">
           <ChartFrame
@@ -219,7 +238,10 @@ export default function RealDashboardPage() {
         Cardiologists
       </SectionTitle>
       <p className="-mt-1 mb-3 text-sm text-slate-500">
-        Alphabetical, not ranked. <OfficeShareNote />
+        {bundle.prediction.available
+          ? "Ranked by the back-test-fitted score: a lead list to check, not a forecast (see the warnings above). "
+          : "Alphabetical, not ranked. "}
+        <OfficeShareNote />
       </p>
       <Card className="p-3">
         <RealLeadTable leads={leads} pageSize={8} />

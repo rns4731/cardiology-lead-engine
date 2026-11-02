@@ -73,6 +73,16 @@ PREDICTION = ("Signals are filled from real records where they exist (each label
               "blank rather than estimated.")
 
 
+PREDICTION_BT = ("Scores use weights fitted in a back-test: signals as of October 2022 against who moved to an "
+                 "independent-style group by October 2024 (an inferred outcome). On held-out doctors the score beat "
+                 "chance, but it did not predict the billing-switch cross-check, and several fitted directions are the "
+                 "opposite of the original hypotheses. Treat the ranking as a lead list to check, not a forecast. "
+                 "Timing windows and candidate groups stay blank (contract dates aren't public; no cohort floor has a "
+                 "real basis).")
+PREDICTION_FAILED = ("A back-test was run (signals as of October 2022 against moves by October 2024) and the fitted score "
+                     "did not beat chance on held-out doctors, so no scores are shown.")
+
+
 def _office_share(svc_rows: list[dict]) -> pd.Series:
     """Share of each NPI's published Medicare services billed with place of service = office."""
     df = pd.DataFrame(svc_rows)
@@ -166,6 +176,24 @@ def build_public_bundle(offline: bool = True) -> dict:
     for n, a in zip(hb["npi"], hb["addr_key"]):
         at_addr[a].append(int(n))
 
+    # back-test weights, applied only when the back-test beat chance (engine/backtest.py)
+    from engine.backtest import load_backtest, score
+
+    bt = load_backtest()
+    scored = {}
+    if bt and bt["verdict"]["passed"]:
+        feats = bt["features"]
+        w = [bt["weights"][f] for f in feats]
+        sg = [bt["signs"][f] for f in feats]
+        # employer disruption enters the score as the back-test measured it: CMS records only
+        cms_vals, _ = compute([int(n) for n in hb["npi"]], subspecialty=dict(zip(hb["npi"], hb["subspecialty"])),
+                              city=city, directory=directory, wrvu=wrvu, payments=payments, news=None,
+                              chow=raw.get("chow", []), asof=asof, cms_only=True)
+        for n in hb["npi"]:
+            scored[int(n)] = score(cms_vals[int(n)], feats, w, sg)
+    ranked = sorted((v[0], n) for n, v in scored.items() if v[0] is not None)
+    rank_of = {n: i + 1 for i, (_, n) in enumerate(sorted(ranked, key=lambda t: (-t[0], t[1])))}
+
     leads = [{
         "npi": int(r["npi"]), "name": r["name"],
         "metro": r["metro"], "metroSlug": slugify(r["metro"]),
@@ -179,6 +207,9 @@ def build_public_bundle(offline: bool = True) -> dict:
         "groups": facts[int(r["npi"])].get("groups", []),
         "hospitals": facts[int(r["npi"])].get("hospitals", []),
         "gradYear": facts[int(r["npi"])].get("grad") or None,
+        "score": scored.get(int(r["npi"]), (None, {}))[0],
+        "scoreParts": scored.get(int(r["npi"]), (None, {}))[1],
+        "scoreRank": rank_of.get(int(r["npi"])),
     } for _, r in hb.iterrows()]
 
     metros = []
@@ -272,7 +303,11 @@ def build_public_bundle(offline: bool = True) -> dict:
             ],
             "subspecialties": present,
         },
-        "prediction": {"available": False, "why": PREDICTION},
+        "prediction": {"available": bool(bt and bt["verdict"]["passed"]),
+                       "why": (PREDICTION_BT if bt and bt["verdict"]["passed"] else
+                               PREDICTION_FAILED if bt else PREDICTION)},
+        "model": ({k: bt[k] for k in ("t0", "t1", "features", "population", "outcome", "model", "metrics", "verdict",
+                                       "weights", "signs", "signals", "crossCheck", "caveats")} if bt else None),
         "signals": signals,
         "metros": metros,
         "leads": leads,

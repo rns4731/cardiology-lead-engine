@@ -150,3 +150,27 @@ def test_temporary_closures_never_count(monkeypatch):
     monkeypatch.setattr(ex, "call_json", _stub([_ev(event_type="closure", status="reported", temporary=True)]))
     (e,) = ex.extract(ARTICLE, ENTS, tag="t")
     assert not e["counted"] and "temporary disruption" in e["rejected"]
+
+
+def test_backtest_score_is_never_imputed_and_parts_sum():
+    from engine.backtest import points, score
+
+    w, s = points(__import__("numpy").array([1.0, -0.5, 0.25]))
+    assert sum(w) == 100 and s == [1, -1, 1]
+    total, parts = score({"a": 0.5, "b": 0.2, "c": 1.0}, ["a", "b", "c"], w, s)
+    assert abs(total - sum(parts.values())) < 0.11
+    assert score({"a": 0.5, "b": None, "c": 1.0}, ["a", "b", "c"], w, s) == (None, {})
+
+
+def test_scores_appear_only_behind_a_passing_backtest():
+    from engine.backtest import load_backtest
+
+    bt = load_backtest()
+    b = _bundle("public")
+    if bt is None:
+        assert not any(l.get("score") is not None for l in b["leads"])
+        return
+    assert bt["verdict"]["passed"] == (bt["metrics"]["aucCi"][0] > 0.5)
+    assert b["prediction"]["available"] == bt["verdict"]["passed"]
+    assert sum(bt["weights"].values()) == 100 and "contract_window" not in bt["weights"]
+    assert bt["t0"] < bt["t1"]

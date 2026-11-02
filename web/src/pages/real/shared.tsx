@@ -9,7 +9,7 @@ import { pct } from "../../lib/format";
 import { SUBSPECIALTY_COLORS, SUBSPECIALTY_ORDER } from "../../lib/palette";
 import { paths } from "../../lib/paths";
 import type { RealLead, SignalStatus } from "../../types";
-import { Card, CardHeader, ErrorState, ProvenancePill } from "../../components/ui";
+import { Card, CardHeader, ErrorState, Pill, ProvenancePill } from "../../components/ui";
 
 const S = "public" as const;
 export const linkCls = "font-medium text-ink decoration-teal-500/60 underline-offset-2 hover:underline";
@@ -52,18 +52,26 @@ export function RealMissing({ kind, id, back }: { kind: string; id: string; back
 }
 
 /** The outputs that need a score, all blank, with the one reason they're blank. */
-export function BlankOutputs({ title = "Score, timing and cohorts", compact = false }: { title?: string; compact?: boolean }) {
+export function BlankOutputs({ title, compact: _compact = false }: { title?: string; compact?: boolean }) {
   const { bundle } = useRealData();
+  const scored = bundle.prediction.available;
   const rows: [string, string][] = [
-    ["Propensity score", "Needs weights with a real basis, and a real outcome to check them against. Neither exists."],
-    ["Rank", "Needs a score."],
+    ...(scored
+      ? []
+      : ([
+          ["Propensity score", "Needs weights that beat chance in the back-test."],
+          ["Rank", "Needs a score."],
+        ] as [string, string][])),
     ["Readiness window", "Needs contract dates, which aren't public, and weights for the timing parts."],
-    ["Candidate cohort", "Needs scores to decide who qualifies."],
-    ...(compact ? [] : ([["Validation (hit rate, lift)", "Needs a score and a real outcome (who actually left)."]] as [string, string][])),
+    ["Candidate cohort", scored ? "Needs a qualifying floor with a real basis; none has been set." : "Needs scores to decide who qualifies."],
   ];
   return (
     <Card>
-      <CardHeader title={title} subtitle="Blank, not estimated" action={<ProvenancePill provenance="none" />} />
+      <CardHeader
+        title={title ?? (bundle.prediction.available ? "Timing and cohorts" : "Score, timing and cohorts")}
+        subtitle="Blank, not estimated"
+        action={<ProvenancePill provenance="none" />}
+      />
       <dl className="mt-3 divide-y divide-slate-100 px-5 pb-2">
         {rows.map(([k, why]) => (
           <div key={k} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 py-2.5">
@@ -133,7 +141,7 @@ export function SignalCoverage() {
   );
 }
 
-export type RealSortKey = "name" | "metro" | "subspecialty" | "office" | "filled";
+export type RealSortKey = "name" | "metro" | "subspecialty" | "office" | "filled" | "score";
 
 export const filled = (l: RealLead) => Object.values(l.values).filter((v) => v != null).length;
 
@@ -149,11 +157,16 @@ export function RealLeadTable({
   showMetro?: boolean;
   empty?: ReactNode;
 }) {
-  const [sort, setSort] = useState<{ key: RealSortKey; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
+  const anyScore = leads.some((l) => l.score != null);
+  const [sort, setSort] = useState<{ key: RealSortKey; dir: "asc" | "desc" }>(
+    anyScore ? { key: "score", dir: "desc" } : { key: "name", dir: "asc" }
+  );
   const [page, setPage] = useState(0);
   const sorted = useMemo(() => {
     const val = (l: RealLead): string | number =>
-      sort.key === "office"
+      sort.key === "score"
+        ? l.score ?? -1
+        : sort.key === "office"
         ? l.officeShare
         : sort.key === "filled"
           ? filled(l)
@@ -180,7 +193,7 @@ export function RealLeadTable({
         <button
           className="inline-flex items-center gap-1 uppercase hover:text-ink"
           onClick={() => {
-            setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+            setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "score" ? "desc" : "asc" }));
             setPage(0);
           }}
           aria-label={`Sort by ${label}`}
@@ -206,7 +219,7 @@ export function RealLeadTable({
               {head("Subspecialty", "subspecialty")}
               {head("Office-setting share", "office")}
               {head("Signals with a value", "filled")}
-              {head("Score")}
+              {anyScore ? head("Score (back-test fit)", "score") : head("Score")}
               {head("Window")}
               {head("Cohort")}
             </tr>
@@ -231,8 +244,14 @@ export function RealLeadTable({
                 </td>
                 <td className="py-2.5 pr-4 tabular-nums text-slate-700">{pct(l.officeShare)}</td>
                 <td className="py-2.5 pr-4 tabular-nums text-slate-700">{filled(l)} of 10</td>
-                <td className="py-2.5 pr-4">
-                  <Blank label="No score: no weights with a real basis" />
+                <td className="py-2.5 pr-4 tabular-nums">
+                  {l.score != null ? (
+                    <span className="font-semibold text-ink">
+                      {Math.floor(l.score)} <span className="text-xs font-normal text-slate-400">#{l.scoreRank}</span>
+                    </span>
+                  ) : (
+                    <Blank label={anyScore ? "No score: a signal is missing (nothing is filled in)" : "No score: the back-test didn't support one"} />
+                  )}
                 </td>
                 <td className="py-2.5 pr-4">
                   <Blank label="No timing: no real data" />
@@ -285,5 +304,93 @@ export function OfficeShareNote() {
       setting (CMS). Everyone listed is at or under {pct(bundle.universe.threshold)}, the rule behind the inferred
       "hospital-based" label.
     </>
+  );
+}
+
+/** The back-test behind the real-data score: what was tested, the verdict, and its warnings.
+ *  Plain-language hit rates up front; AUC only inside the collapsed diagnostics. */
+export function BacktestCard() {
+  const { bundle, signals } = useRealData();
+  const m = bundle.model;
+  if (!m) return null;
+  const top = m.metrics.topK["50"] ?? Object.values(m.metrics.topK)[0];
+  const k = m.metrics.topK["50"] ? 50 : Number(Object.keys(m.metrics.topK)[0]);
+  const cc = m.crossCheck;
+  const ccPass = cc.aucCi != null && cc.aucCi[0] > 0.5;
+  const sorted = [...m.signals].sort((a, b) => b.weight - a.weight);
+  return (
+    <Card>
+      <CardHeader
+        title="Back-test and fit"
+        subtitle={`Signals as they stood on ${m.t0}, checked against who moved by ${m.t1}`}
+        action={<Pill tone={m.verdict.passed ? "emerald" : "rose"}>{m.verdict.passed ? "Beat chance" : "Failed"}</Pill>}
+      />
+      <div className="grid gap-5 px-5 pb-5 pt-4 lg:grid-cols-2">
+        <div className="space-y-3 text-sm text-slate-600">
+          <p>
+            <span className="font-medium text-ink">Tested on: </span>
+            {m.population.used.toLocaleString()} hospital-based cardiologists in seven states; {m.population.positives} (
+            {pct(m.population.baseRate, 1)}) moved. Outcome: {m.outcome.charAt(0).toLowerCase() + m.outcome.slice(1)}.
+          </p>
+          {top && (
+            <p>
+              <span className="font-medium text-ink">Result on held-out doctors: </span>
+              of the top {k}, {top.hits} moved ({pct(top.precision)}) vs {pct(m.population.baseRate, 1)} overall: about{" "}
+              {top.lift.toFixed(1)}× better than random (likely {top.liftCi[0].toFixed(1)}–{top.liftCi[1].toFixed(1)}×).
+            </p>
+          )}
+          <p className={ccPass ? "" : "text-rose-800"}>
+            <span className="font-medium">Cross-check: </span>
+            on the other outcome ({cc.outcome.charAt(0).toLowerCase() + cc.outcome.slice(1)}, {cc.positives} doctors) the same score{" "}
+            {ccPass ? "also beat chance." : "was no better than chance."}
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-xs text-slate-500">
+            {m.caveats.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <details className="text-xs text-slate-500">
+            <summary className="cursor-pointer font-medium text-slate-600">Diagnostics</summary>
+            <p className="mt-1">
+              Out-of-fold AUC {m.metrics.auc.toFixed(2)} (95% CI {m.metrics.aucCi[0].toFixed(2)}–{m.metrics.aucCi[1].toFixed(2)};
+              20 reshuffles {m.metrics.aucRepeats[0].toFixed(2)}–{m.metrics.aucRepeats[1].toFixed(2)}). AUC is the chance a
+              random mover is ranked above a random non-mover: 0.5 is a coin flip, 1.0 is perfect. {m.verdict.rule}{" "}
+              Cross-check AUC {cc.auc?.toFixed(2) ?? "—"}
+              {cc.aucCi ? ` (95% CI ${cc.aucCi[0].toFixed(2)}–${cc.aucCi[1].toFixed(2)})` : ""}. {m.model}.
+            </p>
+          </details>
+        </div>
+        <div className="overflow-x-auto scroll-slim">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                <th className="py-2 pr-3 font-semibold">Signal</th>
+                <th className="py-2 pr-3 font-semibold">Fitted weight</th>
+                <th className="py-2 pr-3 font-semibold">Direction</th>
+                <th className="py-2 font-semibold">Direction holds in</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((s) => (
+                <tr key={s.key} className="border-b border-slate-100 last:border-0">
+                  <td className="py-2 pr-3">
+                    <Link className={linkCls} to={paths.signal(S, s.key)}>
+                      {signals.get(s.key)?.label ?? s.key}
+                    </Link>
+                  </td>
+                  <td className="py-2 pr-3 font-semibold tabular-nums text-ink">{s.weight}</td>
+                  <td className="py-2 pr-3 text-slate-600">{s.direction}</td>
+                  <td className="py-2 tabular-nums text-slate-600">{Math.round(s.sameSignShare * 100)}% of resamples</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-slate-500">
+            Weights sum to 100. "Lower → more likely" means the fit found the opposite of the original hypothesis for that
+            signal. Below ~95%, the direction itself is uncertain. Contract window has no data and isn't in the score.
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }

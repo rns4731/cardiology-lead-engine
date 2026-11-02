@@ -1,0 +1,258 @@
+{
+ "t0": "2022-10-08",
+ "t1": "2024-10-24",
+ "asof": "2022-10-08",
+ "features": [
+  "disruption",
+  "career_stage",
+  "prior_independent",
+  "subspecialty_econ",
+  "productivity",
+  "peer_left",
+  "independent_density",
+  "recent_employer_change",
+  "industry_engagement"
+ ],
+ "population": {
+  "listed": 1040,
+  "used": 935,
+  "missingASignal": 105,
+  "positives": 44,
+  "baseRate": 0.0471,
+  "already_independent_style": 74,
+  "not_listed_at_t1": 82
+ },
+ "outcome": "Appears in an independent-style group (inferred rule) between the Oct 2022 and Oct 2024 CMS snapshots that they were not in before",
+ "model": "L2 logistic regression (lambda 1.0) on 9 signals; 5-fold out-of-fold validation",
+ "metrics": {
+  "auc": 0.657,
+  "aucCi": [
+   0.568,
+   0.747
+  ],
+  "aucRepeats": [
+   0.626,
+   0.673
+  ],
+  "topK": {
+   "50": {
+    "hits": 10,
+    "precision": 0.2,
+    "lift": 4.25,
+    "liftCi": [
+     2.39,
+     7.02
+    ]
+   },
+   "100": {
+    "hits": 14,
+    "precision": 0.14,
+    "lift": 2.98,
+    "liftCi": [
+     1.81,
+     4.7
+    ]
+   }
+  }
+ },
+ "verdict": {
+  "passed": true,
+  "rule": "Out-of-fold AUC's 95% interval must sit above 0.5 (chance).",
+  "text": "Better than chance: AUC 0.66 (95% CI 0.57\u20130.75)."
+ },
+ "weights": {
+  "disruption": 3,
+  "career_stage": 2,
+  "prior_independent": 13,
+  "subspecialty_econ": 11,
+  "productivity": 24,
+  "peer_left": 8,
+  "independent_density": 18,
+  "recent_employer_change": 5,
+  "industry_engagement": 16
+ },
+ "signs": {
+  "disruption": -1,
+  "career_stage": 1,
+  "prior_independent": 1,
+  "subspecialty_econ": -1,
+  "productivity": -1,
+  "peer_left": -1,
+  "independent_density": -1,
+  "recent_employer_change": -1,
+  "industry_engagement": 1
+ },
+ "intercept": -1.967,
+ "signals": [
+  {
+   "key": "disruption",
+   "coef": -0.157,
+   "coefCi": [
+    -0.562,
+    0.466
+   ],
+   "sameSignShare": 0.73,
+   "weight": 3,
+   "direction": "lower \u2192 more likely",
+   "auc": 0.484,
+   "aucCi": [
+    0.398,
+    0.571
+   ],
+   "mean": 0.011
+  },
+  {
+   "key": "career_stage",
+   "coef": 0.107,
+   "coefCi": [
+    -0.503,
+    0.689
+   ],
+   "sameSignShare": 0.63,
+   "weight": 2,
+   "direction": "higher \u2192 more likely",
+   "auc": 0.506,
+   "aucCi": [
+    0.419,
+    0.594
+   ],
+   "mean": 0.418
+  },
+  {
+   "key": "prior_independent",
+   "coef": 0.802,
+   "coefCi": [
+    -0.281,
+    1.662
+   ],
+   "sameSignShare": 0.93,
+   "weight": 13,
+   "direction": "higher \u2192 more likely",
+   "auc": 0.522,
+   "aucCi": [
+    0.434,
+    0.611
+   ],
+   "mean": 0.048
+  },
+  {
+   "key": "subspecialty_econ",
+   "coef": -0.713,
+   "coefCi": [
+    -1.537,
+    0.247
+   ],
+   "sameSignShare": 0.94,
+   "weight": 11,
+   "direction": "lower \u2192 more likely",
+   "auc": 0.445,
+   "aucCi": [
+    0.361,
+    0.529
+   ],
+   "mean": 0.684
+  },
+  {
+   "key": "productivity",
+   "coef": -1.526,
+   "coefCi": [
+    -2.285,
+    -0.744
+   ],
+   "sameSignShare": 1.0,
+   "weight": 24,
+   "direction": "lower \u2192 more likely",
+   "auc": 0.394,
+   "aucCi": [
+    0.315,
+    0.473
+   ],
+   "mean": 0.329
+  },
+  {
+   "key": "peer_left",
+   "coef": -0.485,
+   "coefCi": [
+    -1.267,
+    0.319
+   ],
+   "sameSignShare": 0.9,
+   "weight": 8,
+   "direction": "lower \u2192 more likely",
+   "auc": 0.452,
+   "aucCi": [
+    0.367,
+    0.536
+   ],
+   "mean": 0.274
+  },
+  {
+   "key": "independent_density",
+   "coef": -1.155,
+   "coefCi": [
+    -2.281,
+    0.023
+   ],
+   "sameSignShare": 0.97,
+   "weight": 18,
+   "direction": "lower \u2192 more likely",
+   "auc": 0.333,
+   "aucCi": [
+    0.261,
+    0.405
+   ],
+   "mean": 0.265
+  },
+  {
+   "key": "recent_employer_change",
+   "coef": -0.309,
+   "coefCi": [
+    -1.253,
+    0.52
+   ],
+   "sameSignShare": 0.72,
+   "weight": 5,
+   "direction": "lower \u2192 more likely",
+   "auc": 0.458,
+   "aucCi": [
+    0.373,
+    0.543
+   ],
+   "mean": 0.316
+  },
+  {
+   "key": "industry_engagement",
+   "coef": 1.033,
+   "coefCi": [
+    0.222,
+    1.649
+   ],
+   "sameSignShare": 1.0,
+   "weight": 16,
+   "direction": "higher \u2192 more likely",
+   "auc": 0.588,
+   "aucCi": [
+    0.498,
+    0.678
+   ],
+   "mean": 0.235
+  }
+ ],
+ "crossCheck": {
+  "outcome": "Switched to office-dominant Medicare billing (2022 \u2192 2024)",
+  "positives": 58,
+  "n": 902,
+  "auc": 0.551,
+  "aucCi": [
+   0.472,
+   0.63
+  ]
+ },
+ "caveats": [
+  "The outcome is inferred from CMS billing-group listings and the independent-style rule, not confirmed moves.",
+  "Mover counts swing from 12 to 56 depending on the window chosen, so some moves may be CMS listing artifacts.",
+  "Employer disruption here uses CMS ownership-change records only; news before Oct 2022 was not searched.",
+  "2024 work-RVU values are applied to 2022 billing; CMS no longer publishes the 2022 files.",
+  "Open Payments 2021 is CMS's current copy, which includes corrections made after Oct 2022."
+ ]
+}

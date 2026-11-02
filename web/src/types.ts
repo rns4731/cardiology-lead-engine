@@ -337,6 +337,32 @@ export interface RealLead {
   groups: { pac: string; name: string; style: "independent-style" | "hospital-style" | "unknown"; size: number }[];
   hospitals: { ccn: string; name: string }[];
   gradYear: string | null;
+  /** back-test-fitted score (0-100); null when the back-test failed or a signal is missing */
+  score: number | null;
+  /** points per signal; they sum to the score */
+  scoreParts: Record<string, number>;
+  scoreRank: number | null;
+}
+
+export interface RealModel {
+  t0: string;
+  t1: string;
+  features: string[];
+  population: { listed: number; used: number; missingASignal: number; positives: number; baseRate: number; already_independent_style: number; not_listed_at_t1: number };
+  outcome: string;
+  model: string;
+  metrics: {
+    auc: number;
+    aucCi: [number, number];
+    aucRepeats: [number, number];
+    topK: Record<string, { hits: number; precision: number; lift: number; liftCi: [number, number] }>;
+  };
+  verdict: { passed: boolean; rule: string; text: string };
+  weights: Record<string, number>;
+  signs: Record<string, number>;
+  signals: { key: string; coef: number; coefCi: [number, number]; sameSignShare: number; weight: number; direction: string; auc: number; aucCi: [number, number]; mean: number }[];
+  crossCheck: { outcome: string; positives: number; n: number; auc: number | null; aucCi: [number, number] | null };
+  caveats: string[];
 }
 
 export interface Evidence {
@@ -406,9 +432,10 @@ export interface RealDataBundle {
     directorySnapshots: string[];
   };
   universe: { year: number; threshold: number; rule: string; caveats: string[]; sources: string[]; subspecialties: string[] };
-  prediction: { available: false; why: string };
+  prediction: { available: boolean; why: string };
   signals: RealSignal[];
   metros: RealMetro[];
   leads: RealLead[];
   news: RealNews | null;
+  model: RealModel | null;
 }

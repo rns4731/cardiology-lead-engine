@@ -20,7 +20,7 @@ export function RealSignalsPage() {
         crumbs={[{ label: "Dashboard", to: paths.dashboard(S) }, { label: "Signals" }]}
         kicker="Real data only"
         title="The ten signals"
-        subtitle={`The same ten signals as Synthetic, on the same 0–1 scale. ${filledCount} of the ten are filled from real public records. Each is labeled by how directly its record measures the signal; contract window has no public source and stays empty. There are no weights here, so nothing is scored or validated.`}
+        subtitle={`The same ten signals as Synthetic, on the same 0–1 scale. ${filledCount} of the ten are filled from real public records. Each is labeled by how directly its record measures the signal; contract window has no public source and stays empty.${bundle.model ? " Weights come from the back-test (see the dashboard), with its warnings." : " There are no weights here, so nothing is scored."}`}
       />
       <div className="mb-6 flex flex-wrap gap-2 text-xs text-slate-600">
         {(["real", "stand-in", "inferred", "assumption", "none"] as SignalStatus[]).map((st) => (
@@ -48,7 +48,12 @@ export function RealSignalsPage() {
                 </Link>
                 <div className="mt-0.5 text-xs text-slate-500">
                   Varies by: {LEVEL[s.level]} · Has a value: {s.status === "none" ? "none" : `${s.coverage} of ${s.total}`}
-                  {s.mean != null ? ` · average ${s.mean.toFixed(2)}` : ""} · Weight: <Blank label="No weight: no real basis" />
+                  {s.mean != null ? ` · average ${s.mean.toFixed(2)}` : ""} · Fitted weight:{" "}
+                  {bundle.model?.weights[s.key] != null ? (
+                    `${bundle.model.weights[s.key]} (${bundle.model.signs[s.key] > 0 ? "higher" : "lower"} → more likely)`
+                  ) : (
+                    <Blank label="No weight" />
+                  )}
                 </div>
               </div>
               <StatusPill status={s.status} />
@@ -73,6 +78,7 @@ export function RealSignalPage() {
   const s = signals.get(key);
   if (!s) return <RealMissing kind="signal" id={key} back={{ label: "All signals", to: paths.signals(S) }} />;
   const withValue = bundle.leads.filter((l) => l.values[s.key] != null);
+  const fit = bundle.model?.signals.find((x) => x.key === s.key);
   const top = [...withValue].sort((a, b) => b.values[s.key]! - a.values[s.key]! || a.name.localeCompare(b.name)).slice(0, 12);
   const byCity = bundle.metros.filter((m) => m.means[s.key] != null).sort((a, b) => b.means[s.key]! - a.means[s.key]!);
   return (
@@ -98,8 +104,16 @@ export function RealSignalPage() {
                 {s.status !== "none" && s.coverage < s.total ? " (the rest have no record in the source, and stay empty)" : ""}.
               </p>
               <p>
-                <span className="font-medium text-ink">Weight and predictive check: </span>
-                none. No weights have a real basis and there's no real outcome to test against.
+                <span className="font-medium text-ink">Back-test: </span>
+                {fit ? (
+                  <>
+                    fitted weight {fit.weight} of 100, {fit.direction}; that direction held in {Math.round(fit.sameSignShare * 100)}% of
+                    resamples{fit.sameSignShare < 0.95 ? ", so even the direction is uncertain" : ""}. On its own it{" "}
+                    {fit.aucCi[0] > 0.5 ? "predicted better than chance" : fit.aucCi[1] < 0.5 ? "predicted worse than chance (the opposite way)" : "was too close to call"}.
+                  </>
+                ) : (
+                  "not part of the fitted score (no real data)."
+                )}
               </p>
             </div>
           </Card>
@@ -178,11 +192,11 @@ export function RealGroupsPage() {
         crumbs={[{ label: "Dashboard", to: paths.dashboard(S) }, { label: "Cohorts" }]}
         kicker="Real data only"
         title="Candidate founding cohorts"
-        subtitle="Cohorts are formed from cardiologists who qualify on score. Real data has signal values but no score, so there are no candidates yet."
+        subtitle="Cohorts are formed from cardiologists who qualify on score. There's no qualifying floor with a real basis yet, so there are no candidates."
       />
       <Empty title={id ? `No cohort “${id}” in the real data` : "No candidate cohorts in real data"}>
-        Most signals now have real values, but no weights have a real basis and there's no real outcome to check them
-        against, so no one is scored or qualified, and no cohort can be formed. Nothing is filled in to make one appear. The {bundle.leads.length.toLocaleString()} cardiologists on record are listed
+        The back-test score is a lead list to check, not a validated forecast, and no qualifying floor has a real basis, so
+        no cohort is formed. Nothing is filled in to make one appear. The {bundle.leads.length.toLocaleString()} cardiologists on record are listed
         under <Link className={linkCls} to={paths.cardiologists(S)}>Cardiologists</Link>, and{" "}
         <Link className={linkCls} to={paths.groups("synthetic")}>Synthetic</Link> shows how cohorts work with simulated signals.
       </Empty>

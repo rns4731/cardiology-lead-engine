@@ -91,6 +91,18 @@ directly it measures the signal:
 | Contract window | — no public source | empty |
 | Industry engagement | CMS Open Payments general payments, 2025 | real (exact) |
 
+**Back-test and fit** (`engine/backtest.py`). Signals rebuilt as they stood at the Oct 2022 CMS
+snapshot (2022 billing, Open Payments 2021, ownership changes before then; news not searched) for
+935 hospital-based cardiologists in seven states; outcome = joined an independent-style group by
+the Oct 2024 snapshot (44 did, 4.7%). L2 logistic regression, 5-fold out-of-fold. Rule fixed in
+advance: scores appear only if the out-of-fold AUC's 95% interval is above 0.5. It passed (AUC 0.66,
+CI 0.57–0.75; top 50 held-out: 10 moved = 20% vs 4.7%), **but** it did not predict the cross-check
+outcome (switch to office billing, AUC 0.55, CI 0.47–0.63), and most fitted directions are the
+opposite of the original hypotheses (lower productivity and fewer independent groups nearby point
+toward moving; only industry payments points the expected way). The mover count also swings from 12
+to 56 depending on the window, so some "moves" may be CMS listing artifacts. Treat the ranking as a
+lead list to check, not a forecast. Timing windows and cohorts stay blank.
+
 "Independent-style group" is a stated guess: its cardiologists bill mostly in office settings, its
 legal name doesn't say hospital / medical center / health system / university / provider network,
 and it shares no distinctive name word with a hospital its members are affiliated with. Some

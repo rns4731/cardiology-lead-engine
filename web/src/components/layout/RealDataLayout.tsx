@@ -66,8 +66,18 @@ function RealOnlyBanner() {
         {relativeDate(bundle.source.fetchedAt ?? bundle.source.generatedAt)}). "Hospital-based" is{" "}
         <span className="font-semibold">inferred</span> from billing setting (at most {pct(u.threshold)} of services in an
         office). {filledCount} of the ten signals are filled from real records, each labeled by how directly it measures the
-        signal; contract window stays empty. There is <span className="font-semibold">no score, ranking, timing or cohort</span>:
-        no weights have a real basis. A dash means unknown, not zero.
+        signal; contract window stays empty.{" "}
+        {bundle.prediction.available ? (
+          <>
+            Scores use weights fitted in a <span className="font-semibold">back-test</span> on an inferred outcome; they beat
+            chance there but failed the cross-check, so treat the ranking as leads to check. No timing or cohorts.
+          </>
+        ) : (
+          <>
+            There is <span className="font-semibold">no score, ranking, timing or cohort</span>.
+          </>
+        )}{" "}
+        A dash means unknown, not zero.
       </div>
     </div>
   );

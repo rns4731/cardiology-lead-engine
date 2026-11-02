@@ -6,7 +6,7 @@ import { pct } from "../../lib/format";
 import { paths } from "../../lib/paths";
 import type { RealLead } from "../../types";
 import { PageHeader } from "../../components/layout/AppShell";
-import { Card, CardHeader, ProvenancePill } from "../../components/ui";
+import { Card, CardHeader, Pill, ProvenancePill } from "../../components/ui";
 import { Blank, BlankOutputs, filled, fmtValue, linkCls, OfficeShareNote, RealLeadTable, RealMissing, RealSubTag, StatusPill, useRealSubspecialties } from "./shared";
 
 const S = "public" as const;
@@ -148,7 +148,9 @@ export function RealCardiologistPage() {
         crumbs={[{ label: "Dashboard", to: paths.dashboard(S) }, { label: "Cardiologists", to: paths.cardiologists(S) }, { label: l.name }]}
         kicker={`${l.subspecialty} · ${l.metro}`}
         title={l.name}
-        subtitle={`NPI ${l.npi}. ${filled(l)} of the ten signals have a value from real records, each labeled by how directly it measures the signal. No score: no weights have a real basis.`}
+        subtitle={`NPI ${l.npi}. ${filled(l)} of the ten signals have a value from real records, each labeled by how directly it measures the signal.${
+          l.score != null ? ` Back-test-fitted score ${Math.floor(l.score)} (#${l.scoreRank} of ${bundle.leads.filter((x) => x.score != null).length}).` : ""
+        }`}
       />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
@@ -213,7 +215,48 @@ export function RealCardiologistPage() {
             />
           </dl>
         </Card>
-        <div className="lg:col-span-2">
+        <div className="space-y-6 lg:col-span-2">
+          {bundle.model && (
+            <Card>
+              <CardHeader
+                title="Score"
+                subtitle={l.score != null ? "Weights fitted in the back-test; points per signal sum to the score" : undefined}
+                action={<Pill tone={bundle.model.verdict.passed ? "amber" : "rose"}>{bundle.model.verdict.passed ? "Untested on real departures" : "Back-test failed"}</Pill>}
+              />
+              {l.score != null ? (
+                <div className="px-5 pb-5 pt-3">
+                  <div className="text-3xl font-semibold tabular-nums text-ink">
+                    {Math.floor(l.score)} <span className="text-sm font-normal text-slate-500">#{l.scoreRank}</span>
+                  </div>
+                  <ul className="mt-3 space-y-1 text-sm">
+                    {Object.entries(l.scoreParts)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([k, v]) => (
+                        <li key={k} className="flex justify-between gap-3">
+                          <span className="text-slate-600">
+                            {bundle.signals.find((s) => s.key === k)?.label}
+                            {bundle.model!.signs[k] < 0 && <span className="text-xs text-slate-400"> (lower → more)</span>}
+                          </span>
+                          <span className="tabular-nums text-ink">
+                            {v.toFixed(1)} / {bundle.model!.weights[k]}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                  <p className="mt-3 text-xs text-slate-500">
+                    The score uses employer disruption from CMS ownership records only, as in the back-test. It beat chance on the
+                    back-test's outcome but not on the cross-check: a lead to check, not a forecast.
+                  </p>
+                </div>
+              ) : (
+                <p className="px-5 pb-5 pt-3 text-sm text-slate-500">
+                  {bundle.model.verdict.passed
+                    ? "No score: at least one signal has no real value for this physician, and nothing is filled in."
+                    : bundle.model.verdict.text}
+                </p>
+              )}
+            </Card>
+          )}
           <BlankOutputs compact />
         </div>
       </div>

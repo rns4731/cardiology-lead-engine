@@ -8,16 +8,16 @@
       "description": "A fully simulated universe of 1,200 hospital-employed cardiologists with a hidden outcome simulated from the model's own hypotheses -- it tests the pipeline, not the hypotheses.",
       "available": true,
       "count": 1200,
-      "generatedAt": "2026-11-02T06:22:57+00:00",
+      "generatedAt": "2026-11-02T06:34:18+00:00",
       "failedQueries": 0
     },
     {
       "id": "public",
       "label": "Real data",
-      "description": "Real cardiologists from public CMS Medicare records, hospital-based by billing setting (inferred). The same ten signals, filled from real records where they exist and labeled by provenance; no real outcome to fit weights to, so nothing is scored.",
+      "description": "Real cardiologists from public CMS Medicare records, hospital-based by billing setting (inferred). The same ten signals, filled from real records where they exist and labeled by provenance. Scores use weights from a back-test on an inferred outcome (Oct 2022 -> Oct 2024); they beat chance there but failed the cross-check, so they are leads to check.",
       "available": true,
       "count": 205,
-      "generatedAt": "2026-11-02T06:23:08+00:00",
+      "generatedAt": "2026-11-02T06:41:01+00:00",
       "failedQueries": 0,
       "fetchedAt": "2026-10-31T01:28:47+00:00"
     }

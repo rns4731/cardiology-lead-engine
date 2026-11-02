@@ -51,8 +51,15 @@ def validate_real(b: dict) -> list[str]:
         p.append("duplicate npi in leads")
     if b["source"]["count"] != len(b["leads"]):
         p.append("source.count does not match number of leads")
-    if b["prediction"].get("available") is not False:
-        p.append("real-data bundle claims a prediction")
+    model = b.get("model")
+    if b["prediction"].get("available") and not (model and model["verdict"]["passed"]):
+        p.append("real-data bundle shows scores without a passing back-test")
+    if not b["prediction"].get("available") and any(l.get("score") is not None for l in b["leads"]):
+        p.append("real-data bundle has scores but says no prediction is available")
+    for l in b["leads"]:
+        if l.get("score") is not None and abs(sum(l["scoreParts"].values()) - l["score"]) > 0.11:
+            p.append(f"lead {l['npi']} score != sum of its parts")
+            break
     for a in (b.get("news") or {}).get("articles", []):
         if "text" in a or "html" in a:
             p.append(f"article {a.get('id')} ships its text; only links, headlines and short quotes may be published")
