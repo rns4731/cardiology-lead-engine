@@ -55,8 +55,11 @@ export function Pill({ children, tone = "slate" }: { children: ReactNode; tone?:
 const PROVENANCE: Record<string, { label: string; tone: Tone }> = {
   real: { label: "Real data", tone: "emerald" },
   derived: { label: "Derived from real data", tone: "teal" },
+  "stand-in": { label: "Real, stand-in", tone: "teal" },
   inferred: { label: "Inferred from real data", tone: "teal" },
+  assumption: { label: "Real input, assumed lookup", tone: "amber" },
   none: { label: "No real data", tone: "slate" },
+  fictional: { label: "Fictional article", tone: "amber" },
   simulated: { label: "Simulated", tone: "amber" },
 };
 

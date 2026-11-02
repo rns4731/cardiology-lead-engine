@@ -52,8 +52,12 @@ export default function SystemPage() {
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <Zap size={16} className="mt-0.5 shrink-0 text-amber-600" />
           <span>
-            <span className="font-semibold">{capitalize(s.event)} {s.eventMonthsAgo} months ago</span> (simulated). This is the
-            strongest trigger in the model: it lifts every cardiologist here through the{" "}
+            <span className="font-semibold">{capitalize(s.event)} {s.eventMonthsAgo} months ago</span> (simulated event, read by the
+            news pipeline from a{" "}
+            <TextLink to={paths.news(source, bundle.news?.comparison.find((r) => r.system === s.name)?.extracted?.article)}>
+              fictional article
+            </TextLink>
+            ). This is the strongest trigger in the model: it lifts every cardiologist here through the{" "}
             <TextLink to={paths.signal(source, "disruption")}>employer disruption</TextLink> signal and opens their timing window.
           </span>
         </div>

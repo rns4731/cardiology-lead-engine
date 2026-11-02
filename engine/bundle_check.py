@@ -53,11 +53,22 @@ def validate_real(b: dict) -> list[str]:
         p.append("source.count does not match number of leads")
     if b["prediction"].get("available") is not False:
         p.append("real-data bundle claims a prediction")
+    for a in (b.get("news") or {}).get("articles", []):
+        if "text" in a or "html" in a:
+            p.append(f"article {a.get('id')} ships its text; only links, headlines and short quotes may be published")
+            break
     if len(b["signals"]) != len(SIGNALS) or {s["key"] for s in b["signals"]} != set(SIGNALS):
         p.append("signal list differs from the ten catalog signals")
+    status = {s["key"]: s.get("status") for s in b["signals"]}
     for s in b["signals"]:
-        if s.get("status") != "none" or not s.get("missing"):
-            p.append(f"signal {s['key']} is not marked empty with a reason")
+        if s.get("status") not in {"real", "stand-in", "inferred", "assumption", "none"}:
+            p.append(f"signal {s['key']} has unknown status {s.get('status')}")
+        if s.get("status") == "none" and not s.get("missing"):
+            p.append(f"signal {s['key']} is empty without a stated reason")
+        if s.get("status") != "none" and not s.get("method"):
+            p.append(f"signal {s['key']} has values but no stated method")
+        if s["coverage"] != sum(1 for l in b["leads"] if l["values"].get(s["key"]) is not None):
+            p.append(f"signal {s['key']} coverage does not match its values")
     for bad in _walk_numbers(b):
         p.append(f"NaN/Inf at {bad}")
         break
@@ -65,8 +76,22 @@ def validate_real(b: dict) -> list[str]:
     for n, l in leads.items():
         if SCORE_KEYS & set(l) or FORBIDDEN_LEAD_KEYS & set(l):
             p.append(f"lead {n} carries score/outcome fields {sorted((SCORE_KEYS | FORBIDDEN_LEAD_KEYS) & set(l))}")
-        if set(l["values"]) != set(SIGNALS) or any(v is not None for v in l["values"].values()):
-            p.append(f"lead {n} has a signal value with no real source")
+        if set(l["values"]) != set(SIGNALS):
+            p.append(f"lead {n} signal values don't cover the ten signals")
+        for k, v in l["values"].items():
+            if v is None:
+                continue
+            if status.get(k) == "none":
+                p.append(f"lead {n} has a {k} value but the signal has no real source")
+            if not 0 <= v <= 1:
+                p.append(f"lead {n} {k} value {v} outside 0-1")
+            if k not in l.get("facts", {}):
+                p.append(f"lead {n} {k} value has no stated fact behind it")
+        if (l["values"].get("disruption") or 0) > 0 and not l.get("evidence"):
+            p.append(f"lead {n} has employer disruption without evidence")
+        for e in l.get("evidence", []):
+            if e["kind"] == "news" and not (e.get("url") and e.get("quote")):
+                p.append(f"lead {n} news evidence missing its link or quote")
         if l["metroSlug"] not in metros:
             p.append(f"lead {n} -> unknown metro {l['metroSlug']}")
         if not 0 <= l["officeShare"] <= t:

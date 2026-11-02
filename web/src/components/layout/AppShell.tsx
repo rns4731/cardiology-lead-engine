@@ -10,6 +10,7 @@ const SECTIONS = [
   { key: "groups", label: "Cohorts" },
   { key: "cardiologists", label: "Cardiologists" },
   { key: "signals", label: "Signals" },
+  { key: "news", label: "News" },
 ];
 
 export function Brand() {

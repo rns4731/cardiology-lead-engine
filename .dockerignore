@@ -10,3 +10,5 @@ web
 docs
 .claude
 .DS_Store
+.env
+data/raw

@@ -13,10 +13,12 @@ import GroupsPage from "./pages/GroupsPage";
 import GroupPage from "./pages/GroupPage";
 import SignalsPage from "./pages/SignalsPage";
 import SignalPage from "./pages/SignalPage";
+import NewsPage from "./pages/NewsPage";
 import RealDashboardPage from "./pages/real/RealDashboardPage";
 import { RealLocationPage, RealLocationsPage } from "./pages/real/RealLocationPages";
 import { RealCardiologistPage, RealCardiologistsPage } from "./pages/real/RealCardiologistPages";
 import { RealGroupsPage, RealNoSystems, RealSignalPage, RealSignalsPage } from "./pages/real/RealSignalAndGroupPages";
+import RealNewsPage from "./pages/real/RealNewsPage";
 
 function Shell() {
   return (
@@ -51,6 +53,7 @@ export function AppRoutes() {
           <Route path="groups/:id" element={<RealGroupsPage />} />
           <Route path="signals" element={<RealSignalsPage />} />
           <Route path="signals/:key" element={<RealSignalPage />} />
+          <Route path="news" element={<RealNewsPage />} />
           <Route path="*" element={<NotFoundBody />} />
         </Route>
         <Route path=":source" element={<SourceLayout />}>
@@ -65,6 +68,7 @@ export function AppRoutes() {
           <Route path="groups/:id" element={<GroupPage />} />
           <Route path="signals" element={<SignalsPage />} />
           <Route path="signals/:key" element={<SignalPage />} />
+          <Route path="news" element={<NewsPage />} />
           <Route path="*" element={<NotFoundBody />} />
         </Route>
         <Route path="*" element={<NotFoundBody />} />

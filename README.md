@@ -72,17 +72,57 @@ outcomes can. *Real identities*: all 1,087 cardiologists practicing in the eight
 the public NIH/NLM NPI registry; identity, location and subspecialty are real, everything
 behavioral is simulated and labeled as such. Hospital systems are placeholders. No PHI.
 
-*Real signals*: real data **and** a real model. Ten signals computed from public CMS data
-(Medicare utilization by provider and by service 2014–2024 — volume, procedure mix, place of
-service, practice address, tenure — plus acute-care hospital change-of-ownership events), with weights
-**fitted** by logistic regression on a real outcome: of 1,171 clearly hospital-based
-cardiologists in 7 states in 2022, 83 shifted to office-based billing by 2024 (a proxy for
-leaving hospital practice). Out-of-fold AUC 0.65; top-100 lift 2.4×. Weak spots, stated plainly:
-the hospital-sale signal is city-wide (affiliation data was blocked), chance-level on its own
-(AUC 0.508) and currently zero in all eight metros, so timing windows are almost all "Watch". Scores 205 hospital-based
-cardiologists in the eight metros; practice sites are real shared billing addresses. Refresh the
-data with `.venv/bin/python -m engine.public_fetch` (slow: the CMS API took ~2 h); rebuilds from
-the cache in `data/cache/public_raw.json.gz` are offline and instant.
+*Real data*: real public records only, nothing simulated. 205 cardiologists in the eight
+cities whose 2024 Medicare billing is at most 20% in office settings (CMS Medicare Physician &
+Other Practitioners) — "hospital-based" is **inferred** from billing setting, not employment.
+Same ten signals and 0–1 formulas as Synthetic, each filled from a real record and labeled by how
+directly it measures the signal:
+
+| Signal | Real record | Label |
+|---|---|---|
+| Employer disruption | CMS hospital change-of-ownership + news read by Claude, for the billing group / affiliated hospitals | stand-in (group/affiliation ≈ employer) |
+| Career stage | graduation year (CMS Doctors & Clinicians) | stand-in (not years in practice) |
+| Prior independent | billing-group history, Oct 2019 → Oct 2026 snapshots | inferred ("independent-style" rule) |
+| Subspecialty economics | Medicare provider type + the fixed lookup | assumption (lookup values) |
+| Productivity | Medicare services × CMS work RVUs, 2024 percentile | stand-in (Medicare only) |
+| Peer recently left | year-earlier group colleagues now in an independent-style group | inferred |
+| Independent density | independent-style cardiology groups billing from the city | inferred |
+| Recent employer change | first appearance in a new billing group | stand-in (billing group, not employer) |
+| Contract window | — no public source | empty |
+| Industry engagement | CMS Open Payments general payments, 2025 | real (exact) |
+
+"Independent-style group" is a stated guess: its cardiologists bill mostly in office settings, its
+legal name doesn't say hospital / medical center / health system / university / provider network,
+and it shares no distinctive name word with a hospital its members are affiliated with. Some
+hospital-owned groups still pass. No weights have a real basis and there's no real outcome, so
+score, ranking, timing windows and cohorts stay blank.
+
+**News pipeline** (`engine/news/`). For each listed cardiologist's billing group and affiliated
+hospitals, Google News is searched for the last 36 months; each article is opened in real Chrome
+(`scripts/fetch_pages.cjs`) and read by Claude (`claude-opus-5-5`, structured output). An event
+counts only if Claude's quote appears **word for word** in the article, it's about one of those
+organizations, it's reported as fact (not rumored or denied) and it's M&A, financial distress,
+layoffs, bankruptcy or closure; follow-up coverage doesn't make an event newer. Article text never
+leaves `data/raw/` (git-ignored); the app gets the link, headline and short quote. In Synthetic and
+Real-identities modes the same pipeline reads **fictional** articles Claude wrote about the
+simulator's own events (plus decoys: denials, routine news, old events, other organizations), and
+employer disruption there comes from what it read — with extraction accuracy shown on the News page.
+
+Refreshing the real inputs (network; the CMS provider-data host only answers real browsers):
+
+```bash
+node scripts/download_cms.cjs data/raw/cms <snapshot zip urls>   # CMS Doctors & Clinicians archive
+.venv/bin/python -m engine.cms_directory     # -> data/cache/cms_directory.json.gz
+.venv/bin/python -m engine.wrvu              # -> data/cache/work_rvu_2024.json
+.venv/bin/python -m engine.open_payments     # streams the 2025 bulk file -> data/cache/open_payments.json
+.venv/bin/pip install -r requirements-pipeline.txt   # anthropic, trafilatura
+.venv/bin/python -m engine.news.fake         # fictional articles + extraction (Claude) -> data/cache/news_fake.json
+.venv/bin/python -m engine.news.real_news    # real news (Claude) -> data/cache/news_real.json
+.venv/bin/python -m engine.export_web --offline
+```
+
+The Claude key is read from `.env` (`ANTHROPIC_API_KEY`, git- and docker-ignored). Every Claude call
+is cached in `data/raw/llm/`, so re-runs are free; bundle rebuilds never call the API.
 
 ## Layout
 

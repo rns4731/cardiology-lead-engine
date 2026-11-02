@@ -1,6 +1,6 @@
-// Building blocks for the Real data pages (/public/*). Every value here is a real CMS
-// record or explicitly blank: a blank renders as "—" with "No real data" beside it,
-// never as 0 and never as an estimate.
+// Building blocks for the Real data pages (/public/*). Every value here comes from a real
+// public record and carries its label (real, stand-in, inferred, assumption), or is
+// explicitly blank: a blank renders as "—" with "No real data" beside it, never as 0.
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -8,7 +8,7 @@ import { useRealData } from "../../lib/data";
 import { pct } from "../../lib/format";
 import { SUBSPECIALTY_COLORS, SUBSPECIALTY_ORDER } from "../../lib/palette";
 import { paths } from "../../lib/paths";
-import type { RealLead } from "../../types";
+import type { RealLead, SignalStatus } from "../../types";
 import { Card, CardHeader, ErrorState, ProvenancePill } from "../../components/ui";
 
 const S = "public" as const;
@@ -55,9 +55,9 @@ export function RealMissing({ kind, id, back }: { kind: string; id: string; back
 export function BlankOutputs({ title = "Score, timing and cohorts", compact = false }: { title?: string; compact?: boolean }) {
   const { bundle } = useRealData();
   const rows: [string, string][] = [
-    ["Propensity score", "Needs weighted signals; none has real data."],
+    ["Propensity score", "Needs weights with a real basis, and a real outcome to check them against. Neither exists."],
     ["Rank", "Needs a score."],
-    ["Readiness window", "Needs trigger, peer and contract dates; none has real data."],
+    ["Readiness window", "Needs contract dates, which aren't public, and weights for the timing parts."],
     ["Candidate cohort", "Needs scores to decide who qualifies."],
     ...(compact ? [] : ([["Validation (hit rate, lift)", "Needs a score and a real outcome (who actually left)."]] as [string, string][])),
   ];
@@ -80,10 +80,23 @@ export function BlankOutputs({ title = "Score, timing and cohorts", compact = fa
   );
 }
 
+export const STATUS_LABEL: Record<SignalStatus, string> = {
+  real: "Real, exact",
+  "stand-in": "Real, stand-in",
+  inferred: "Inferred from real data",
+  assumption: "Real input, assumed lookup",
+  none: "No real data",
+};
+
+export function StatusPill({ status }: { status: SignalStatus }) {
+  return <ProvenancePill provenance={status} />;
+}
+
+export const fmtValue = (v: number | null | undefined) => (v == null ? null : v.toFixed(2));
+
 /** The ten signals with their real-data status, linking to each signal's page. */
-export function SignalCoverage({ limit }: { limit?: number }) {
+export function SignalCoverage() {
   const { bundle } = useRealData();
-  const rows = limit ? bundle.signals.slice(0, limit) : bundle.signals;
   return (
     <div className="overflow-x-auto scroll-slim">
       <table className="w-full text-sm">
@@ -91,13 +104,13 @@ export function SignalCoverage({ limit }: { limit?: number }) {
           <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
             <th className="py-2.5 pl-5 pr-4 font-semibold">Signal</th>
             <th className="py-2.5 pr-4 font-semibold">Varies by</th>
-            <th className="py-2.5 pr-4 font-semibold">Value</th>
             <th className="py-2.5 pr-4 font-semibold">Real data</th>
-            <th className="py-2.5 pr-5 font-semibold">Why it's empty</th>
+            <th className="py-2.5 pr-4 font-semibold">Has a value</th>
+            <th className="py-2.5 pr-5 font-semibold">How it's computed here</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((s) => (
+          {bundle.signals.map((s) => (
             <tr key={s.key} className="border-b border-slate-100 align-top last:border-0">
               <td className="whitespace-nowrap py-3 pl-5 pr-4">
                 <Link to={paths.signal(S, s.key)} className={linkCls}>
@@ -106,12 +119,12 @@ export function SignalCoverage({ limit }: { limit?: number }) {
               </td>
               <td className="py-3 pr-4 text-slate-600">{LEVEL[s.level]}</td>
               <td className="py-3 pr-4">
-                <Blank />
+                <StatusPill status={s.status} />
               </td>
-              <td className="py-3 pr-4">
-                <ProvenancePill provenance="none" />
+              <td className="whitespace-nowrap py-3 pr-4 tabular-nums text-slate-700">
+                {s.status === "none" ? <Blank /> : `${s.coverage} of ${s.total}`}
               </td>
-              <td className="min-w-[18rem] py-3 pr-5 text-slate-600">{s.missing}</td>
+              <td className="min-w-[20rem] py-3 pr-5 text-slate-600">{s.method ?? s.missing}</td>
             </tr>
           ))}
         </tbody>
@@ -120,7 +133,9 @@ export function SignalCoverage({ limit }: { limit?: number }) {
   );
 }
 
-export type RealSortKey = "name" | "metro" | "subspecialty" | "office";
+export type RealSortKey = "name" | "metro" | "subspecialty" | "office" | "filled";
+
+export const filled = (l: RealLead) => Object.values(l.values).filter((v) => v != null).length;
 
 /** Directory table for real records. No score column to sort by -- there is no score. */
 export function RealLeadTable({
@@ -138,7 +153,15 @@ export function RealLeadTable({
   const [page, setPage] = useState(0);
   const sorted = useMemo(() => {
     const val = (l: RealLead): string | number =>
-      sort.key === "office" ? l.officeShare : sort.key === "metro" ? l.metro : sort.key === "subspecialty" ? l.subspecialty : l.name;
+      sort.key === "office"
+        ? l.officeShare
+        : sort.key === "filled"
+          ? filled(l)
+          : sort.key === "metro"
+            ? l.metro
+            : sort.key === "subspecialty"
+              ? l.subspecialty
+              : l.name;
     const out = [...leads].sort((a, b) => {
       const x = val(a);
       const y = val(b);
@@ -182,6 +205,7 @@ export function RealLeadTable({
               {showMetro && head("City", "metro")}
               {head("Subspecialty", "subspecialty")}
               {head("Office-setting share", "office")}
+              {head("Signals with a value", "filled")}
               {head("Score")}
               {head("Window")}
               {head("Cohort")}
@@ -206,8 +230,9 @@ export function RealLeadTable({
                   <RealSubTag name={l.subspecialty} />
                 </td>
                 <td className="py-2.5 pr-4 tabular-nums text-slate-700">{pct(l.officeShare)}</td>
+                <td className="py-2.5 pr-4 tabular-nums text-slate-700">{filled(l)} of 10</td>
                 <td className="py-2.5 pr-4">
-                  <Blank label="No score: no signal has real data" />
+                  <Blank label="No score: no weights with a real basis" />
                 </td>
                 <td className="py-2.5 pr-4">
                   <Blank label="No timing: no real data" />

@@ -19,6 +19,7 @@ import os
 import re
 from datetime import datetime, timezone
 
+import numpy as np
 import pandas as pd
 
 from engine.clustering import (
@@ -135,6 +136,10 @@ def _metrics(m: dict) -> dict:
 
 def _provenance(source_id: str, key: str) -> dict:
     """What actually produced this signal's values in this mode (never the plan)."""
+    if key == "disruption":
+        return {"provenance": "simulated",
+                "source": "Simulated events, written up as fictional news articles and read back by the news pipeline "
+                          "(Claude, quotes verified verbatim) -- the value comes from what the pipeline read. See News."}
     if source_id == "real" and key == "subspecialty_econ":
         return {"provenance": "derived",
                 "source": "Fixed economics lookup on the physician's real NPI-registry subspecialty (NIH/NLM)"}
@@ -162,7 +167,42 @@ def _real_identity_lead(lead: dict) -> dict:
     }
 
 
-def build_bundle(df: pd.DataFrame, source_id: str, extra: dict | None = None) -> dict:
+def news_event_out(e: dict) -> dict:
+    """One extracted event in bundle shape (shared by real and fictional news)."""
+    return {"article": e["article"], "entityId": e["entity_id"], "organization": e["organization_as_written"],
+            "type": e["event_type"], "status": e["status"], "date": e["date"], "quote": e["evidence_quote"],
+            "verified": e["verified"], "counted": e["counted"], "rejected": e["rejected"]}
+
+
+def apply_fictional_news(df: pd.DataFrame, universe: str) -> tuple[pd.DataFrame, dict]:
+    """Employer disruption as READ from fictional articles by the news pipeline, replacing the
+    simulator's own event values (which stay hidden, like the outcome). Returns the frame and
+    the bundle's news block."""
+    from engine.news.fake import load_fake
+
+    fake = load_fake()
+    if fake is None or universe not in fake["universes"]:
+        raise RuntimeError("no fictional-news extraction -- run: python -m engine.news.fake (needs the Claude API)")
+    u = fake["universes"][universe]
+    by = u["bySystem"]
+    got = [by.get(f"{m}|{e}") for m, e in zip(df["metro"], df["employer"])]
+    df = df.assign(
+        disruption_event=[g["event"] if g else "none" for g in got],
+        disruption_recency_months=[int(round(g["monthsAgo"])) if g else 999 for g in got],
+        disruption_signal=[round(float(np.exp(-g["monthsAgo"] / 12.0)), 4) if g else 0.0 for g in got],
+    )
+    block = {
+        "fictional": True, "asof": fake["asof"], "model": fake["model"], "accuracy": u["accuracy"],
+        "articles": [{k: a[k] for k in ("id", "kind", "metro", "system", "title", "text", "published", "publisher")}
+                     for a in u["articles"]],
+        "events": [news_event_out(e) for e in u["events"]],
+        "comparison": [{"metro": r["metro"], "system": r["system"], "truth": r["truth"],
+                        "extracted": r["extracted"]} for r in u["comparison"]],
+    }
+    return df, block
+
+
+def build_bundle(df: pd.DataFrame, source_id: str, extra: dict | None = None, news: dict | None = None) -> dict:
     scored = score_frame(df)  # sorted by propensity, index 0..n-1
     contrib = contribution_matrix(scored)
     cohorts = form_cohorts(scored)
@@ -246,7 +286,10 @@ def build_bundle(df: pd.DataFrame, source_id: str, extra: dict | None = None) ->
         "sweep": sweep,
         "leads": leads,
     }
-    return camel(bundle)
+    out = camel(bundle)
+    if news is not None:
+        out["news"] = news  # already in bundle shape; article text is fictional
+    return out
 
 
 def _write(source_id: str, bundle: dict) -> str:
@@ -328,7 +371,8 @@ def export(sources: list[str], offline: bool = False) -> dict:
             continue
         try:
             if sid == "synthetic":
-                b = build_bundle(generate(n=1200, seed=RNG_SEED), sid, {"seed": RNG_SEED})
+                df, news = apply_fictional_news(generate(n=1200, seed=RNG_SEED), "synthetic")
+                b = build_bundle(df, sid, {"seed": RNG_SEED}, news)
             elif sid == "public":
                 from engine.real_data import build_public_bundle
                 b = build_public_bundle(offline=offline)
@@ -337,8 +381,8 @@ def export(sources: list[str], offline: bool = False) -> dict:
                 from engine.nppes_nlm import API
 
                 ids, prov = _real_identities(offline)
-                b = build_bundle(generate_from_identities(ids, seed=RNG_SEED), sid,
-                                 {"seed": RNG_SEED, "api": API, **prov})
+                df, news = apply_fictional_news(generate_from_identities(ids, seed=RNG_SEED), "real")
+                b = build_bundle(df, sid, {"seed": RNG_SEED, "api": API, **prov}, news)
             path = _write(sid, b)
             entry.update(available=True, count=b["source"]["count"],
                          generatedAt=b["source"]["generatedAt"],

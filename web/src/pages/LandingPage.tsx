@@ -126,6 +126,8 @@ const BUILT = [
   "Candidate cohorts: disjoint founding slates of 5–8 per metro, with who would strengthen each",
   "An evaluation harness: hit rates with uncertainty ranges, a best-achievable benchmark, and small-number suppression",
   "A real-identity mode on public NPI-registry data",
+  "A real-data mode: nine of the ten signals from CMS records (billing groups 2019–2026, work RVUs, Open Payments), each labeled exact, stand-in, inferred or assumption",
+  "A news pipeline: Claude reads articles about each employer; an event counts only if its quote is in the article word for word. Fictional articles test it in the simulated modes",
 ];
 const DEFERRED = [
   ["Contact find & verify", "A mature enrichment-vendor problem — integrate, don't rebuild."],

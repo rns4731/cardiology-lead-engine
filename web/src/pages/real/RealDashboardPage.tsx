@@ -57,16 +57,23 @@ export default function RealDashboardPage() {
     return c;
   }, [metros]);
   const byCity = [...metros].sort((a, b) => b.total - a.total || a.metro.localeCompare(b.metro));
+  const filledSignals = bundle.signals.filter((s) => s.status !== "none" && s.coverage > 0);
+  const breakdown = (["real", "stand-in", "inferred", "assumption"] as const)
+    .map((st) => [st, filledSignals.filter((s) => s.status === st).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([st, n]) => `${n} ${st === "real" ? "exact" : st}`)
+    .join(" · ");
+  const news = bundle.news;
 
   return (
     <>
       <PageHeader
         kicker="Growth pipeline · real data only"
-        title="Who's there, and what real data can't tell us yet"
+        title="Who's there, and what real data says about them"
         subtitle={
           <>
-            {bundle.source.description} Every number below is a count of real records, and every blank is an
-            unknown, not a zero.
+            {bundle.source.description} Every number below comes from a real record, and every blank is an unknown, not a
+            zero.
           </>
         }
         actions={<SourceToggleView source={S} manifest={manifest} />}
@@ -85,8 +92,13 @@ export default function RealDashboardPage() {
           sub={`${pct(leads.length / billing)} of them mostly in hospital settings`}
           to={paths.locations(S)}
         />
-        <StatTile label="Signals with real data" value="0 of 10" sub="all ten empty: see why" to={paths.signals(S)} />
-        <StatTile label="Propensity score" value={<Blank />} sub="no real basis: no signals" />
+        <StatTile
+          label="Signals with real data"
+          value={`${filledSignals.length} of 10`}
+          sub={breakdown}
+          to={paths.signals(S)}
+        />
+        <StatTile label="Propensity score" value={<Blank />} sub="no weights with a real basis" />
         <StatTile label="Candidate cohorts" value={<Blank />} sub="need a score to qualify anyone" to={paths.groups(S)} />
         <StatTile label="Window open now" value={<Blank />} sub="no timing data" />
       </div>
@@ -133,16 +145,34 @@ export default function RealDashboardPage() {
       </div>
 
       <SectionTitle action={<TextLink to={paths.signals(S)}>All signals <ArrowRight size={14} /></TextLink>}>
-        The ten signals: none has real data yet
+        The ten signals from real records
       </SectionTitle>
       <p className="-mt-1 mb-3 max-w-3xl text-sm text-slate-500">
-        Same ten signals as Synthetic. Each would be filled only from a real source that measures that exact thing. None is
-        connected, and stand-ins (Medicare dollars for productivity, address changes for employer changes) were declined, so
-        every value is empty.
+        Same ten signals and 0–1 formulas as Synthetic. Each is labeled by how directly its real record measures the signal:
+        exact, a stand-in for a closely related thing, inferred through a stated rule, or a real input through an assumed lookup.
+        Contract window has no public source and stays empty.
       </p>
       <Card className="py-2">
         <SignalCoverage />
       </Card>
+
+      {news && (
+        <Card className="mt-6 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[15px] font-semibold text-ink">Employer disruption from the news</h3>
+              <p className="mt-0.5 max-w-3xl text-sm text-slate-500">
+                Google News searched for {news.stats.entities} billing groups and hospitals; {news.stats.headlines} articles read by
+                Claude ({news.model}); {news.stats.counted} events counted after the verbatim-quote and status checks. CMS
+                change-of-ownership records for affiliated hospitals count too.
+              </p>
+            </div>
+            <TextLink to={paths.news(S)}>
+              See every event <ArrowRight size={14} />
+            </TextLink>
+          </div>
+        </Card>
+      )}
 
       <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
         <div className="lg:col-span-2">

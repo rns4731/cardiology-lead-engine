@@ -17,3 +17,9 @@ outputs/
 
 # NOTE: web/public/data/ (bundles) and data/cache/ (public NPI-registry identities)
 # are committed on purpose so the app runs and rebuilds offline from a fresh clone.
+
+# secrets (Claude API key for the news pipeline) -- never commit
+.env
+
+# large raw downloads (CMS directory snapshots, Open Payments, RVU zips); compact extracts live in data/cache/
+data/raw/

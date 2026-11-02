@@ -41,6 +41,7 @@ for (const source of availableSources()) {
       [`/${source}/cardiologists/${unplaced.npi}`, unplaced.name],
       [`/${source}/groups`, /founding cohorts/i],
       [`/${source}/signals`, /The ten signals/],
+      [`/${source}/news`, /Reading employer disruption from the news/],
       [`/${source}/cardiologists/1`, /No cardiologist/],
       [`/${source}/groups/no-such-cohort`, /No cohort/],
       [`/${source}/locations/atlantis`, /No location/],

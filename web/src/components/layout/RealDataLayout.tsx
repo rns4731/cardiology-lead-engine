@@ -56,6 +56,7 @@ export function RealDataLayout() {
 function RealOnlyBanner() {
   const { bundle } = useRealData();
   const u = bundle.universe;
+  const filledCount = bundle.signals.filter((s) => s.status !== "none" && s.coverage > 0).length;
   return (
     <div className="mb-6 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
       <BadgeCheck size={18} className="mt-0.5 shrink-0 text-emerald-600" />
@@ -64,8 +65,9 @@ function RealOnlyBanner() {
         subspecialties are public CMS Medicare records ({u.year}; fetched{" "}
         {relativeDate(bundle.source.fetchedAt ?? bundle.source.generatedAt)}). "Hospital-based" is{" "}
         <span className="font-semibold">inferred</span> from billing setting (at most {pct(u.threshold)} of services in an
-        office). None of the ten signals has a real source connected, so every signal is empty and there is{" "}
-        <span className="font-semibold">no score, ranking, timing or cohort</span>. A dash means unknown, not zero.
+        office). {filledCount} of the ten signals are filled from real records, each labeled by how directly it measures the
+        signal; contract window stays empty. There is <span className="font-semibold">no score, ranking, timing or cohort</span>:
+        no weights have a real basis. A dash means unknown, not zero.
       </div>
     </div>
   );

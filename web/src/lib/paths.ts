@@ -43,6 +43,7 @@ export const paths = {
   group: (s: SourceId, id: string) => `/${s}/groups/${id}`,
   signals: (s: SourceId) => `/${s}/signals`,
   signal: (s: SourceId, key: string) => `/${s}/signals/${key}`,
+  news: (s: SourceId, article?: string) => `/${s}/news${article ? `#${article}` : ""}`,
 };
 
 /**

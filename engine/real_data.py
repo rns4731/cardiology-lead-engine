@@ -1,34 +1,25 @@
-"""The "Real data" source: only what public CMS records actually say. No score.
+"""The "Real data" source: real public records only. Nothing simulated; no score.
 
-It uses the same ten signals as the synthetic universe (engine/signals.py). A signal is
-filled only from a real source that measures that exact thing, and none is connected:
+The same ten signals as the synthetic universe (engine/signals.py), each filled from a real
+record where one exists, with an honest label per signal (engine/real_signals.py):
+real, stand-in, inferred, assumption -- or empty when there is no real source (contract
+window). Sources: CMS Medicare utilization (2024), CMS Doctors & Clinicians snapshots
+2019-2026 (billing groups, graduation year, hospital affiliations), CMS Open Payments
+(2025), CMS work RVUs (CY2024), CMS hospital ownership changes, and news articles read by
+Claude with every quote verified verbatim (engine/news/).
 
-  - no news / M&A feed (employer disruption); no training or certification dates (career
-    stage); no affiliation or reassignment history (prior independent, peer left,
-    independent groups, employer change); no wRVUs (productivity); Open Payments refused
-    this client (403); contract dates are not public.
-  - Subspecialty is real, but the economics score built on it is a fixed lookup -- an
-    assumption, not data -- so that signal stays empty too.
-  - Stand-ins from Medicare billing (allowed $, billing-address changes, years billing)
-    were considered and declined: a proxy is not the signal.
+Who is listed: cardiologists billing Medicare in 2024 whose billing city is one of the
+eight cities and who billed at most 20% of services in office settings -- "hospital-based"
+is INFERRED from billing setting, not from employment records.
 
-So every signal value is null, and there are no weights, score, ranking, timing windows
-or candidate groups. Nothing is simulated or imputed; where data is missing the bundle
-says so instead of estimating. What IS real:
-
-  - who: cardiologists billing Medicare in the latest published year (CMS Medicare
-    Physician & Other Practitioners, by Provider) whose billing city is one of the
-    eight cities;
-  - "hospital-based" is INFERRED from billing setting: at most 20% of their Medicare
-    services that year were billed with place of service = office (CMS by Provider and
-    Service). Billing setting is not employment, and every page says so;
-  - name, NPI, billing address and Medicare provider type, as CMS publishes them.
+There are still no weights with a real basis and no real outcome (who actually left), so
+score, ranking, timing windows and candidate groups stay blank rather than estimated.
 """
 from __future__ import annotations
 
 import string
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pandas as pd
 
@@ -76,9 +67,10 @@ MISSING = {
 }
 assert set(MISSING) == set(CATALOG), "every signal needs an explanation"
 
-PREDICTION = ("No signal has a real source connected, so there is nothing to weight or score. There is also no real "
-              "outcome data (who actually left hospital employment), so nothing could be validated. Score, ranking, "
-              "timing windows and candidate groups are left blank rather than estimated.")
+PREDICTION = ("Signals are filled from real records where they exist (each labeled real, stand-in, inferred or "
+              "assumption), but no weights have a real basis and there is no real outcome data (who actually left hospital "
+              "employment) to fit or check them against. So score, ranking, timing windows and candidate groups are left "
+              "blank rather than estimated.")
 
 
 def _office_share(svc_rows: list[dict]) -> pd.Series:
@@ -113,10 +105,8 @@ def _addr_key(r) -> str:
     return "".join(ch for ch in str(r["Rndrng_Prvdr_St1"]).upper() if ch.isalnum()) + "|" + str(r["Rndrng_Prvdr_Zip5"])[:5]
 
 
-def build_public_bundle(offline: bool = True) -> dict:
-    from engine.export_web import SCHEMA_VERSION
-
-    raw = load(offline=offline)
+def _universe(raw: dict) -> tuple[pd.DataFrame, pd.Series]:
+    """Inferred hospital-based cardiologists in the eight cities, plus all billing per city."""
     prv = pd.DataFrame(raw["prv"][str(YEAR)]).drop_duplicates("Rndrng_NPI").set_index("Rndrng_NPI")
     df = prv.join(_office_share(raw["svc"][str(YEAR)]), how="inner")
     metro_of = _city_metro()
@@ -130,6 +120,47 @@ def build_public_bundle(offline: bool = True) -> dict:
     hb = hb.reset_index().rename(columns={"Rndrng_NPI": "npi"})
     hb["npi"] = hb["npi"].astype(int)
     hb = hb.sort_values(["metro", "Rndrng_Prvdr_Last_Org_Name", "Rndrng_Prvdr_First_Name", "npi"], kind="stable")
+    return hb, in_cities.groupby("metro").size()
+
+
+def universe_npis() -> set[int]:
+    hb, _ = _universe(load(offline=True))
+    return set(hb["npi"])
+
+
+def _optional(loader):
+    try:
+        return loader()
+    except RuntimeError:
+        return None
+
+
+def build_public_bundle(offline: bool = True) -> dict:
+    from engine.cms_directory import load_directory
+    from engine.export_web import SCHEMA_VERSION, news_event_out
+    from engine.insights import bin_counts
+    from engine.news.real_news import load_real_news
+    from engine.open_payments import load_payments
+    from engine.real_signals import STATUS, Directory, compute, office_share, work_rvus
+    from engine.wrvu import load_work_rvu
+
+    raw = load(offline=offline)
+    hb, billing = _universe(raw)
+
+    directory_raw = _optional(load_directory)
+    shares = {int(y): office_share(raw["svc"][y]) for y in raw["svc"]}
+    directory = Directory(directory_raw, shares) if directory_raw else None
+    work = _optional(lambda: load_work_rvu())
+    wrvu = work_rvus(raw["svc"][str(YEAR)], work["work"]) if work else None
+    payments = _optional(load_payments)
+    news = load_real_news()
+    asof = date.fromisoformat(news["asof"]) if news else (
+        date.fromisoformat(directory.latest) if directory else date.today())
+    city = {int(n): (str(c).upper().strip(), st) for n, c, st in
+            zip(hb["npi"], hb["Rndrng_Prvdr_City"], hb["Rndrng_Prvdr_State_Abrvtn"])}
+    values, facts = compute([int(n) for n in hb["npi"]], subspecialty=dict(zip(hb["npi"], hb["subspecialty"])), city=city,
+                            directory=directory, wrvu=wrvu, payments=payments, news=news,
+                            chow=raw.get("chow", []), asof=asof)
 
     at_addr = defaultdict(list)
     for n, a in zip(hb["npi"], hb["addr_key"]):
@@ -142,48 +173,81 @@ def build_public_bundle(offline: bool = True) -> dict:
         "address": _address(r),
         "officeShare": round(float(r["office_share"]), 4),
         "sameAddress": [n for n in at_addr[r["addr_key"]] if n != int(r["npi"])],
-        "values": {k: None for k in CATALOG},
+        "values": values[int(r["npi"])],
+        "facts": facts[int(r["npi"])]["text"],
+        "evidence": facts[int(r["npi"])]["evidence"],
+        "groups": facts[int(r["npi"])].get("groups", []),
+        "hospitals": facts[int(r["npi"])].get("hospitals", []),
+        "gradYear": facts[int(r["npi"])].get("grad") or None,
     } for _, r in hb.iterrows()]
 
-    billing = in_cities.groupby("metro").size()
     metros = []
     for m in METROS:
         city, state = [p.strip() for p in m.rsplit(",", 1)]
         here = hb[hb["metro"] == m]
         lat, lon = METRO_COORDS.get(m, (None, None))
+        ls = [l for l in leads if l["metro"] == m]
         metros.append({
             "slug": slugify(m), "metro": m, "city": city, "state": state, "lat": lat, "lon": lon,
             "billing": int(billing.get(m, 0)), "total": int(len(here)),
             "mix": {k: int(v) for k, v in here["subspecialty"].value_counts().sort_index().items()},
+            "means": {k: (round(sum(l["values"][k] for l in ls if l["values"][k] is not None) /
+                                max(1, sum(1 for l in ls if l["values"][k] is not None)), 3)
+                          if any(l["values"][k] is not None for l in ls) else None) for k in CATALOG},
         })
 
-    signals = [{
-        "key": s["key"], "label": FACTOR_LABELS[s["key"]], "level": s["level"],
-        "rationale": s["rationale"], "definition": s["formula"],
-        "status": "none", "missing": MISSING[s["key"]], "productionSource": s["production_source"],
-    } for s in catalog()]
+    signals = []
+    for sg in catalog():
+        k = sg["key"]
+        status, method = STATUS[k]
+        vals = [l["values"][k] for l in leads if l["values"][k] is not None]
+        h = bin_counts(vals, 10) if vals else [0] * 10
+        signals.append({
+            "key": k, "label": FACTOR_LABELS[k], "level": sg["level"], "rationale": sg["rationale"],
+            "definition": sg["formula"], "status": status,
+            "method": method, "missing": MISSING[k] if status == "none" else None,
+            "productionSource": sg["production_source"],
+            "coverage": len(vals), "total": len(leads),
+            "mean": round(sum(vals) / len(vals), 3) if vals else None,
+            "hist": [{"x0": round(j / 10, 2), "x1": round((j + 1) / 10, 2), "count": int(h[j])} for j in range(10)],
+        })
+
+    news_block = None
+    if news:
+        news_block = {
+            "asof": news["asof"], "model": news["model"], "stats": news["stats"],
+            "articles": [{k: a.get(k) for k in ("id", "title", "publisher", "published", "finalUrl", "fullText", "entities", "readError")}
+                         for a in news["articles"]],
+            "events": [news_event_out(e) for e in news["events"]],
+            "entities": [{"id": e["id"], "name": e["name"], "place": e["place"], "kinds": e["kinds"],
+                          "cardiologists": len(e["npis"])} for e in news["entities"]],
+        }
 
     present = sorted(set(hb["subspecialty"]))
+    filled = sum(1 for s in signals if s["status"] != "none" and s["coverage"] > 0)
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": KIND,
         "source": {
             "id": "public", "label": "Real data",
-            "description": (f"{len(leads):,} cardiologists in the eight cities whose {YEAR} Medicare billing is "
-                            "mostly in hospital settings, from public CMS records. Same ten signals as Synthetic, "
-                            "but none has a real source connected, so all are empty and nothing is scored."),
+            "description": (f"{len(leads):,} cardiologists in the eight cities whose {YEAR} Medicare billing is mostly in "
+                            f"hospital settings, from public CMS records. {filled} of the ten signals are filled from real "
+                            "data (each labeled exact, stand-in, inferred or assumption); nothing is simulated, and "
+                            "nothing is scored."),
             "provenance": {
                 "identity": f"real (CMS Medicare Physician & Other Practitioners, by Provider, {YEAR})",
                 "location": "real (Medicare billing address)",
                 "subspecialty": "real (Medicare provider type)",
                 "hospital-based": f"inferred from {YEAR} billing setting (at most {HOSPITAL_BASED:.0%} of services in office settings)",
-                "employer": "unknown (no real source connected)",
-                "signals": "none connected; all ten are empty",
-                "score, timing, groups": "none (no real basis)",
+                "billing group, hospitals, graduation year": "real (CMS Doctors & Clinicians snapshots)",
+                "signals": "real, stand-in, inferred or assumption per signal; contract window empty",
+                "score, timing, groups": "none (no real basis for weights; no real outcome)",
             },
             "count": len(leads),
             "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "fetchedAt": raw.get("fetchedAt"),
+            "asof": asof.isoformat(),
+            "directorySnapshots": directory.dates if directory else [],
         },
         "universe": {
             "year": YEAR,
@@ -198,8 +262,13 @@ def build_public_bundle(offline: bool = True) -> dict:
                 "City means the billing address city exactly; suburbs of the same metro aren't included.",
             ],
             "sources": [
-                f"CMS Medicare Physician & Other Practitioners, by Provider ({YEAR})",
-                f"CMS Medicare Physician & Other Practitioners, by Provider and Service ({YEAR})",
+                f"CMS Medicare Physician & Other Practitioners, by Provider and by Provider and Service ({YEAR})",
+                "CMS Doctors & Clinicians National Downloadable File and Facility Affiliation snapshots"
+                + (f" ({directory.dates[0]} to {directory.dates[-1]})" if directory else ""),
+                "CMS Open Payments general payments (2025)",
+                "CMS Physician Fee Schedule work RVUs (CY2024)",
+                "CMS Hospital Change of Ownership; CMS Hospital General Information",
+                "News articles found via Google News, read by Claude (claude-opus-5-5), quotes verified verbatim",
             ],
             "subspecialties": present,
         },
@@ -207,4 +276,5 @@ def build_public_bundle(offline: bool = True) -> dict:
         "signals": signals,
         "metros": metros,
         "leads": leads,
+        "news": news_block,
     }

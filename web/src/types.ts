@@ -237,6 +237,84 @@ export interface Bundle {
   groups: Group[];
   sweep: SweepRow[];
   leads: Lead[];
+  /** fictional articles read by the news pipeline; source of employer disruption here */
+  news?: FictionalNews;
+}
+
+// ---------------------------------------------------------------------------------
+// News pipeline (engine/news/): Claude reads articles; only events whose quote appears
+// verbatim in the article are verified, and only counted ones feed employer disruption.
+
+export interface NewsEvent {
+  article: string;
+  entityId: string;
+  organization: string;
+  type: string;
+  status: string;
+  date: string | null;
+  quote: string;
+  verified: boolean;
+  counted: boolean;
+  /** why it isn't counted (empty when counted) */
+  rejected: string[];
+}
+
+export interface FictionalArticle {
+  id: string;
+  kind: "report" | "followup" | "old" | "denial" | "routine" | "other_org";
+  metro: string;
+  system: string;
+  title: string;
+  text: string;
+  published: string;
+  publisher: string;
+}
+
+export interface FictionalNews {
+  fictional: true;
+  asof: string;
+  model: string;
+  accuracy: {
+    systems: number;
+    withEvent: number;
+    found: number;
+    missed: number;
+    falseAlarms: number;
+    typeCorrect: number;
+    meanMonthsError: number | null;
+    articles: number;
+    eventsExtracted: number;
+    eventsCounted: number;
+    quoteFailures: number;
+  };
+  articles: FictionalArticle[];
+  events: NewsEvent[];
+  comparison: {
+    metro: string;
+    system: string;
+    truth: { event: string; monthsAgo: number } | null;
+    extracted: { event: string; monthsAgo: number; article: string; quote: string } | null;
+  }[];
+}
+
+export interface RealArticle {
+  id: string;
+  title: string;
+  publisher: string;
+  published: string | null;
+  finalUrl: string;
+  /** false = paywalled/blocked, so only the headline was read */
+  fullText: boolean;
+  entities: string[];
+}
+
+export interface RealNews {
+  asof: string;
+  model: string;
+  stats: { entities: number; headlines: number; fullText: number; headlineOnly: number; eventsExtracted: number; verified: number; counted: number };
+  articles: RealArticle[];
+  events: NewsEvent[];
+  entities: { id: string; name: string; place: string; kinds: string[]; cardiologists: number }[];
 }
 
 // ---------------------------------------------------------------------------------
@@ -256,9 +334,34 @@ export interface RealLead {
   officeShare: number;
   /** others in this list billing from the same address */
   sameAddress: number[];
-  /** the ten signals: always null here (no real source connected) */
+  /** the ten signals on their 0-1 scale; null = no real value for this physician */
   values: Record<string, number | null>;
+  /** the real record behind each non-null value, in words */
+  facts: Record<string, string>;
+  /** employer-disruption events behind the value (news with link + verbatim quote, or CMS records) */
+  evidence: Evidence[];
+  /** billing groups in the latest CMS snapshot, with the inferred style */
+  groups: { pac: string; name: string; style: "independent-style" | "hospital-style" | "unknown"; size: number }[];
+  hospitals: { ccn: string; name: string }[];
+  gradYear: string | null;
 }
+
+export interface Evidence {
+  kind: "news" | "cms";
+  via: "billing group" | "affiliated hospital";
+  entity: string;
+  type: string;
+  date: string;
+  monthsAgo: number;
+  quote: string;
+  status: string;
+  title: string | null;
+  publisher: string | null;
+  url: string | null;
+  reports: number;
+}
+
+export type SignalStatus = "real" | "stand-in" | "inferred" | "assumption" | "none";
 
 export interface RealMetro {
   slug: string;
@@ -272,6 +375,8 @@ export interface RealMetro {
   /** of those, inferred hospital-based */
   total: number;
   mix: Counts;
+  /** mean signal value among listed cardiologists with a value (null = none) */
+  means: Record<string, number | null>;
 }
 
 export interface RealSignal {
@@ -281,10 +386,16 @@ export interface RealSignal {
   rationale: string;
   /** how the signal is defined (and simulated in Synthetic mode) */
   definition: string;
-  status: "none";
-  /** why it is empty here */
-  missing: string;
+  status: SignalStatus;
+  /** how it is computed from real records here (null when empty) */
+  method: string | null;
+  /** why it is empty here (status none) */
+  missing: string | null;
   productionSource: string;
+  coverage: number;
+  total: number;
+  mean: number | null;
+  hist: HistBin[];
 }
 
 export interface RealDataBundle {
@@ -298,10 +409,13 @@ export interface RealDataBundle {
     count: number;
     generatedAt: string;
     fetchedAt?: string;
+    asof: string;
+    directorySnapshots: string[];
   };
   universe: { year: number; threshold: number; rule: string; caveats: string[]; sources: string[]; subspecialties: string[] };
   prediction: { available: false; why: string };
   signals: RealSignal[];
   metros: RealMetro[];
   leads: RealLead[];
+  news: RealNews | null;
 }

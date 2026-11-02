@@ -7,7 +7,7 @@ import { paths } from "../../lib/paths";
 import type { RealLead } from "../../types";
 import { PageHeader } from "../../components/layout/AppShell";
 import { Card, CardHeader, ProvenancePill } from "../../components/ui";
-import { Blank, BlankOutputs, linkCls, OfficeShareNote, RealLeadTable, RealMissing, RealSubTag, useRealSubspecialties } from "./shared";
+import { Blank, BlankOutputs, filled, fmtValue, linkCls, OfficeShareNote, RealLeadTable, RealMissing, RealSubTag, StatusPill, useRealSubspecialties } from "./shared";
 
 const S = "public" as const;
 
@@ -49,7 +49,7 @@ export function RealCardiologistsPage() {
         crumbs={[{ label: "Dashboard", to: paths.dashboard(S) }, { label: "Cardiologists" }]}
         kicker="Directory · real data only"
         title="Cardiologists"
-        subtitle="Everyone on record: real CMS identities, hospital-based by billing setting (inferred). No one is scored or ranked, because no signal has real data."
+        subtitle="Everyone on record: real CMS identities, hospital-based by billing setting (inferred). Signals are filled from real records where they exist, but no one is scored or ranked: no weights have a real basis."
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -148,12 +148,12 @@ export function RealCardiologistPage() {
         crumbs={[{ label: "Dashboard", to: paths.dashboard(S) }, { label: "Cardiologists", to: paths.cardiologists(S) }, { label: l.name }]}
         kicker={`${l.subspecialty} · ${l.metro}`}
         title={l.name}
-        subtitle={`NPI ${l.npi}. Real CMS records only: no score, ranking or timing, because none of the ten signals has real data.`}
+        subtitle={`NPI ${l.npi}. ${filled(l)} of the ten signals have a value from real records, each labeled by how directly it measures the signal. No score: no weights have a real basis.`}
       />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
-          <CardHeader title="On record" subtitle={`CMS Medicare Physician & Other Practitioners (${year})`} />
+          <CardHeader title="On record" subtitle={`CMS Medicare (${year}) and CMS Doctors & Clinicians (${bundle.source.directorySnapshots.at(-1) ?? "—"})`} />
           <dl className="mt-2 divide-y divide-slate-100 px-5 pb-3">
             <Fact label="NPI" value={l.npi} provenance="real" />
             <Fact label="Name" value={l.name} provenance="real" />
@@ -164,6 +164,7 @@ export function RealCardiologistPage() {
               provenance="real"
               note={l.providerType === "Cardiology" ? "CMS provider type “Cardiology” is shown as General cardiology." : undefined}
             />
+            <Fact label="Medical-school graduation" value={l.gradYear ?? <Blank />} provenance={l.gradYear ? "real" : "none"} />
             <Fact label="Billing address" value={l.address} provenance="real" />
             <Fact
               label="City"
@@ -186,7 +187,30 @@ export function RealCardiologistPage() {
               provenance="inferred"
               note={`Inferred: ${pct(l.officeShare)} is at or under the ${pct(bundle.universe.threshold)} rule. Billing setting isn't employment.`}
             />
-            <Fact label="Employer" value={<Blank />} provenance="none" note="No real source: CMS hospital-affiliation data refused this client." />
+            <Fact
+              label="Billing group (closest record of employer)"
+              value={
+                l.groups.length ? (
+                  <ul className="space-y-0.5">
+                    {l.groups.map((g) => (
+                      <li key={g.pac}>
+                        {g.name} <span className="text-xs text-slate-500">· {g.size} cardiologist{g.size === 1 ? "" : "s"} · {g.style}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Blank />
+                )
+              }
+              provenance={l.groups.length ? "real" : "none"}
+              note="The group CMS lists this physician as billing through (reassignment). Independent- or hospital-style is inferred from how the group's cardiologists bill."
+            />
+            <Fact
+              label="Affiliated hospitals"
+              value={l.hospitals.length ? l.hospitals.map((h) => h.name).join("; ") : <Blank />}
+              provenance={l.hospitals.length ? "real" : "none"}
+              note="Affiliation usually means privileges, not employment."
+            />
           </dl>
         </Card>
         <div className="lg:col-span-2">
@@ -195,35 +219,90 @@ export function RealCardiologistPage() {
       </div>
 
       <Card className="mt-6">
-        <CardHeader
-          title="The ten signals"
-          subtitle="Same signals as Synthetic. Each stays empty until a real source that measures it is connected."
-          action={<ProvenancePill provenance="none" />}
-        />
+        <CardHeader title="The ten signals" subtitle="Same definitions as Synthetic, on the same 0–1 scale. Each value shows the real record behind it." />
         <div className="mt-2 overflow-x-auto scroll-slim">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
                 <th className="py-2.5 pl-5 pr-4 font-semibold">Signal</th>
                 <th className="py-2.5 pr-4 font-semibold">Value</th>
-                <th className="py-2.5 pr-5 font-semibold">What it needs</th>
+                <th className="py-2.5 pr-4 font-semibold">Real data</th>
+                <th className="py-2.5 pr-5 font-semibold">From</th>
               </tr>
             </thead>
             <tbody>
-              {bundle.signals.map((s) => (
-                <tr key={s.key} className="border-b border-slate-100 align-top last:border-0">
-                  <td className="whitespace-nowrap py-3 pl-5 pr-4">
-                    <Link className={linkCls} to={paths.signal(S, s.key)}>
-                      {s.label}
-                    </Link>
-                  </td>
-                  <td className="py-3 pr-4">{l.values[s.key] == null ? <Blank /> : l.values[s.key]}</td>
-                  <td className="min-w-[18rem] py-3 pr-5 text-slate-600">{s.missing}</td>
-                </tr>
-              ))}
+              {bundle.signals.map((s) => {
+                const v = l.values[s.key];
+                return (
+                  <tr key={s.key} className="border-b border-slate-100 align-top last:border-0">
+                    <td className="whitespace-nowrap py-3 pl-5 pr-4">
+                      <Link className={linkCls} to={paths.signal(S, s.key)}>
+                        {s.label}
+                      </Link>
+                    </td>
+                    <td className="py-3 pr-4 font-semibold tabular-nums text-ink">{v == null ? <Blank /> : fmtValue(v)}</td>
+                    <td className="py-3 pr-4">
+                      <StatusPill status={v == null ? "none" : s.status} />
+                    </td>
+                    <td className="min-w-[18rem] py-3 pr-5 text-slate-600">
+                      {v == null ? (s.status === "none" ? s.missing : "No record for this physician in the source.") : l.facts[s.key]}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader
+          title="Employer disruption: the evidence"
+          subtitle="Events in the last 36 months about this physician's billing group or affiliated hospitals. News events are kept only when Claude's quote appears word for word in the article."
+        />
+        {l.evidence.length ? (
+          <ul className="mt-3 space-y-3 px-5 pb-5">
+            {l.evidence.map((e, i) => (
+              <li key={i} className="rounded-xl border border-slate-200 px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-ink">{e.entity}</span>
+                  <span className="text-slate-500">({e.via})</span>
+                  <span className="text-slate-700">
+                    · {e.type.replace(/_/g, " ")} · {e.date} ({e.monthsAgo.toFixed(0)} months ago)
+                  </span>
+                  <span className="ml-auto">
+                    <ProvenancePill provenance="real" />
+                  </span>
+                </div>
+                <p className="mt-1.5 text-slate-600">“{e.quote}”</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {e.kind === "news" ? (
+                    <>
+                      {e.publisher}
+                      {e.title ? `: ${e.title}` : ""}
+                      {e.url && (
+                        <>
+                          {" · "}
+                          <a className="text-teal-700 underline" href={e.url} target="_blank" rel="noreferrer">
+                            source article
+                          </a>
+                        </>
+                      )}
+                      {e.reports > 1 ? ` · ${e.reports} reports` : ""}
+                    </>
+                  ) : (
+                    "CMS Hospital Change of Ownership record"
+                  )}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-5 pb-5 pt-3 text-sm text-slate-500">{l.facts.disruption ??
+              (l.groups.length || l.hospitals.length
+                ? "The news pipeline hasn't been run for this export, so nothing was searched."
+                : "No billing group or hospital on record to search.")}</p>
+        )}
       </Card>
 
       <Card className="mt-6">

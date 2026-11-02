@@ -24,10 +24,22 @@ const pages = [
   ["group", `/synthetic/groups/${synth.groups[0].id}`],
   ["signals", "/synthetic/signals"],
   ["signal", "/synthetic/signals/disruption"],
+  ["news", "/synthetic/news"],
 ];
 if (manifest.sources.find((s) => s.id === "real")?.available) {
   const real = await (await fetch(`${base}/data/real/bundle.json`)).json();
   pages.push(["real-dashboard", "/real/dashboard"], ["real-cardiologist", `/real/cardiologists/${real.leads[0].npi}`]);
+}
+
+if (manifest.sources.find((s) => s.id === "public")?.available) {
+  const pub = await (await fetch(`${base}/data/public/bundle.json`)).json();
+  pages.push(
+    ["public-dashboard", "/public/dashboard"],
+    ["public-cardiologist", `/public/cardiologists/${pub.leads[0].npi}`],
+    ["public-signals", "/public/signals"],
+    ["public-signal", "/public/signals/disruption"],
+    ["public-news", "/public/news"],
+  );
 }
 
 const browser = await chromium.launch({ channel: "chrome", headless: true });

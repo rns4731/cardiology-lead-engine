@@ -8,7 +8,8 @@ import { Card, StatTile } from "../../components/ui";
 import { ChartFrame } from "../../components/charts/ChartFrame";
 import { StackedBar } from "../../components/charts/StackedBar";
 import { RealCityMap } from "./RealDashboardPage";
-import { Blank, linkCls, OfficeShareNote, RealLeadTable, RealMissing, useRealSubspecialties } from "./shared";
+import { BarList } from "../../components/charts/BarList";
+import { Blank, linkCls, OfficeShareNote, RealLeadTable, RealMissing, STATUS_LABEL, useRealSubspecialties } from "./shared";
 
 const S = "public" as const;
 
@@ -89,7 +90,7 @@ export function RealLocationsPage() {
 
 export function RealLocationPage() {
   const { slug = "" } = useParams();
-  const { metros, leadsByMetro } = useRealData();
+  const { bundle, metros, leadsByMetro } = useRealData();
   const subs = useRealSubspecialties();
   const m = metros.get(slug);
   if (!m) return <RealMissing kind="location" id={slug} back={{ label: "All locations", to: paths.locations(S) }} />;
@@ -132,8 +133,9 @@ export function RealLocationPage() {
         <Card className="p-5 text-sm text-slate-600 lg:col-span-2">
           <h3 className="text-[15px] font-semibold text-ink">No cohorts here, by design</h3>
           <p className="mt-1.5">
-            A founding cohort needs five or more cardiologists who qualify on score. With no signal backed by real data there's
-            no score, so nobody qualifies and no cohort is formed. The list below is everyone on record, not a shortlist.
+            A founding cohort needs five or more cardiologists who qualify on score. Signals here have real values, but no
+            weights have a real basis, so there's no score: nobody qualifies and no cohort is formed. The list below is everyone
+            on record, not a shortlist.
           </p>
           <p className="mt-2 text-xs text-slate-500">
             Employers are unknown (CMS hospital-affiliation data refused this client), so there's no hospital-system breakdown
@@ -141,6 +143,31 @@ export function RealLocationPage() {
           </p>
         </Card>
       </div>
+
+      <ChartFrame
+        className="mt-6"
+        title="Signal averages here"
+        subtitle="Mean 0–1 value among listed cardiologists in this city with a value. Not a score."
+        table={{
+          columns: ["Signal", "Average", "Real data"],
+          rows: bundle.signals.map((s) => [s.label, m.means[s.key]?.toFixed(2) ?? "—", STATUS_LABEL[s.status]]),
+        }}
+      >
+        <BarList
+          labelWidth="12.5rem"
+          max={1}
+          rows={bundle.signals
+            .filter((s) => m.means[s.key] != null)
+            .map((s) => ({
+              key: s.key,
+              label: s.label,
+              value: m.means[s.key]!,
+              display: m.means[s.key]!.toFixed(2),
+              to: paths.signal(S, s.key),
+              note: STATUS_LABEL[s.status],
+            }))}
+        />
+      </ChartFrame>
 
       <Card className="mt-6 p-3">
         <RealLeadTable leads={leads} showMetro={false} empty="Nobody listed in this city." />

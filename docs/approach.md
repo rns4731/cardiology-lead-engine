@@ -154,9 +154,12 @@ are simulated, and every page says so.
 0. **Already wired:** real identities from the NIH/NLM NPI registry (CMS NPPES returned
    NXDOMAIN during the build, so it's the fallback). The "who/where/what" is real today;
    only the propensity features are modeled.
-1. **Wire the remaining public sources** — CMS Open Payments + physician utilization
-   (real productivity & industry engagement) and a light news/M&A feed for disruption
-   triggers, to replace the last modeled features.
+1. **Wire the remaining public sources** — *now done in the Real data mode*: CMS Doctors &
+   Clinicians snapshots 2019–2026 (billing groups, graduation year, hospital affiliations),
+   Medicare work RVUs, Open Payments, hospital ownership changes, and a news pipeline (Claude
+   reads articles; an event counts only when its quote is verbatim in the article). Nine of the
+   ten signals have real inputs, several as labeled stand-ins or inferences; contract window has
+   no public source. What's still missing is a real outcome to fit and check weights against.
 2. **Contact verification layer** — vendor enrichment with a confidence score; only
    promote verified leads into cohorts.
 3. **Learn the weights** — once outreach outcomes exist, fit a calibrated model and
