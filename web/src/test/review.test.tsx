@@ -103,24 +103,6 @@ for (const source of availableSources()) {
   });
 }
 
-if (availableSources().includes("real")) {
-  const b = loadBundle("real");
-  describe("real: honesty regressions", () => {
-    it("D5: outcome figures on the signals page are labeled simulated", async () => {
-      mount("/real/signals");
-      await screen.findByRole("heading", { level: 1 });
-      expect(document.querySelector("main")!.textContent).toMatch(/of the top 25 moved \(simulated outcome\)/);
-    });
-
-    it("D6: plain-language reasons about a real physician are labeled simulated", async () => {
-      const lead = b.leads.find((l) => l.reasons.length > 0)!;
-      mount(`/real/cardiologists/${lead.npi}`);
-      const h = await screen.findByText("Top reasons", {}, { timeout: 10000 });
-      expect(h.closest("div.rounded-2xl")!.textContent).toMatch(/Simulated/);
-    });
-  });
-}
-
 describe("landing: plain-language metrics", () => {
   it("leads with hit rate and baseline; AUC only inside the collapsed diagnostics", async () => {
     mount("/");

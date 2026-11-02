@@ -16,13 +16,13 @@ edit project files (scratch only). Read `.claude/CLAUDE.md`,
   Find hrefs built by hand instead of `lib/paths.ts`; chart marks with `useDrill` targets
   that 404; filters set by a link that `filterLeads` doesn't understand (e.g. `timing=A,B`,
   `max`, `group=<id>`); bin links whose list count ≠ the bin count.
-- **Source switching.** Toggle Synthetic ⇄ Real on every page type: does any page show the
+- **Source switching.** Toggle Synthetic ⇄ Real data on every page type: does any page show the
   previous source's data, a stale index, or link to an id that doesn't exist in the new
   source? (`useAsync` path tagging, `switchSourcePath`, `MissingEntity`.)
 - **State bugs.** Pagination that resets on every render, sort that silently overrides a
   caller's order (`initialSort={null}`), scroll position on navigation, query-param edits
   that drop other params, hooks called after an early return.
-- **Not-found and loading paths.** Bad source, bad slug/npi/id, real bundle unavailable,
+- **Not-found and loading paths.** Bad source, bad slug/npi/id, a bundle unavailable,
   fetch failure — each must render a heading and a way back, never a blank or a throw.
 - **Dataviz rules.** Missing/small-n values plotted as zero; a chart without a table twin;
   ≥2 series without a legend; text colored with a series color; dual y-axes; bars thicker

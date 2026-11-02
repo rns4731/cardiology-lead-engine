@@ -16,8 +16,8 @@ RUN grep -v '^streamlit' requirements.txt > /tmp/req-engine.txt \
 
 COPY engine/ engine/
 COPY tests/ tests/
-# public NPI-registry identities cached from the last live fetch: lets the real bundle
-# be rebuilt offline, so `docker compose up` needs no network
+# public CMS pulls cached from the last live fetch: lets the Real data bundle be
+# rebuilt offline, so `docker compose up` needs no network
 COPY data/ data/
 # alembic.ini points at engine/db/migrations (the `migrate` service runs it)
 COPY run.py pytest.ini alembic.ini ./

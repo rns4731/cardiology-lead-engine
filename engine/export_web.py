@@ -1,15 +1,17 @@
 """Export scored universes as JSON bundles for the React app.
 
-    .venv/bin/python -m engine.export_web                 # synthetic + real
+    .venv/bin/python -m engine.export_web                 # synthetic + public
     .venv/bin/python -m engine.export_web --source synthetic
-    .venv/bin/python -m engine.export_web --offline       # no network: real is rebuilt
-                                                          # from cached identities
+    .venv/bin/python -m engine.export_web --offline       # no network: public is rebuilt
+                                                          # from cached CMS pulls
 
 Writes web/public/data/<source>/bundle.json and web/public/data/manifest.json.
 The "public" source (Real data) is built by engine/real_data.py from cached CMS pulls:
-real records only, every signal empty, nothing scored.
-The real source pulls live identities from NIH/NLM's NPI API; if that fails, a
-previously exported real bundle is kept and flagged stale rather than lost.
+real records only, signals labeled by provenance, nothing scored. If a source fails to
+build, a previously exported bundle is kept and flagged stale rather than lost.
+
+There is deliberately no mode that puts real names on simulated signals: a simulated
+score next to a real physician reads as a fact about them.
 """
 from __future__ import annotations
 
@@ -48,7 +50,6 @@ from engine.insights import (
     timing_matrix,
 )
 from engine.scoring import (
-    FACTOR_LABELS,
     REASON_FLOOR,
     TIMING_BUCKETS,
     TIMING_LABELS,
@@ -61,9 +62,6 @@ from engine.signals import catalog
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "web", "public", "data")
-# last successful live fetch of real identities (public NPI-registry records), so the
-# real bundle can be rebuilt offline whenever the engine changes
-IDENTITY_CACHE = os.path.join(ROOT, "data", "cache", "real_identities.json")
 SCHEMA_VERSION = 3
 
 SOURCES = {
@@ -79,20 +77,9 @@ SOURCES = {
     "public": {
         "label": "Real data",
         "description": "Real cardiologists from public CMS Medicare records, hospital-based by billing setting "
-                       "(inferred). Same ten signals as Synthetic, but none has a real source connected, so all "
-                       "are empty and nothing is scored.",
+                       "(inferred). The same ten signals, filled from real records where they exist and labeled "
+                       "by provenance; no real outcome to fit weights to, so nothing is scored.",
         "provenance": {},
-    },
-    "real": {
-        "label": "Real identities",
-        "description": "Real cardiologists from the public NIH/NLM NPI registry. Identity, "
-                       "location and subspecialty are real; employer, every behavioral signal, "
-                       "and the outcome are simulated and are NOT facts about these physicians.",
-        "provenance": {"identity": "real (NIH/NLM NPI registry)",
-                       "location": "real (NIH/NLM NPI registry)",
-                       "subspecialty": "real (NPI taxonomy; 'Cardiovascular Disease' shown as General cardiology)",
-                       "employer": "simulated (fictional systems)",
-                       "signals": "simulated", "outcome": "simulated"},
     },
 }
 
@@ -134,37 +121,14 @@ def _metrics(m: dict) -> dict:
     }
 
 
-def _provenance(source_id: str, key: str) -> dict:
-    """What actually produced this signal's values in this mode (never the plan)."""
+def _provenance(key: str) -> dict:
+    """What actually produced this signal's values (never the plan)."""
     if key == "disruption":
         return {"provenance": "simulated",
                 "source": "Simulated events, written up as fictional news articles and read back by the news pipeline "
                           "(Claude, quotes verified verbatim) -- the value comes from what the pipeline read. See News."}
-    if source_id == "real" and key == "subspecialty_econ":
-        return {"provenance": "derived",
-                "source": "Fixed economics lookup on the physician's real NPI-registry subspecialty (NIH/NLM)"}
     return {"provenance": "simulated",
             "source": "Simulated — drawn at random by the generator (engine/generate_data.py); not data about any physician"}
-
-
-def _real_identity_lead(lead: dict) -> dict:
-    """Real-identities mode: keep the real identity and the (labeled) simulated score, but
-    never attach invented facts -- amounts, events, history -- to a real, named person."""
-    top = sorted(lead["contributions"].items(), key=lambda kv: -kv[1])[:3]
-    return {
-        **lead,
-        "age": 0, "yearsInPractice": 0, "tenureYears": 0, "priorIndependent": False, "peerLeft": False,
-        "wrvuPercentile": 0, "openPayments": 0.0, "contractMonths": 0, "noncompeteMonths": 0,
-        "disruptionEvent": None, "disruptionMonthsAgo": None, "independentGroupsMetro": 0,
-        "reasons": [f"Simulated score driver: {FACTOR_LABELS[k]}" for k, v in top if v > 0],
-        "attributes": [
-            {"label": "NPI", "value": str(lead["npi"]), "provenance": "real"},
-            {"label": "Name", "value": lead["name"], "provenance": "real"},
-            {"label": "Location", "value": lead["metro"], "provenance": "real"},
-            {"label": "Subspecialty", "value": lead["subspecialty"], "provenance": "real"},
-            {"label": "Employer", "value": f"{lead['employer']} (placeholder)", "provenance": "simulated"},
-        ],
-    }
 
 
 def news_event_out(e: dict) -> dict:
@@ -252,9 +216,7 @@ def build_bundle(df: pd.DataFrame, source_id: str, extra: dict | None = None, ne
             "related": related[npi],
         })
 
-    signals = [{**s, **stats[s["key"]], **_provenance(source_id, s["key"])} for s in catalog()]
-    if source_id == "real":
-        leads = [_real_identity_lead(l) for l in leads]
+    signals = [{**s, **stats[s["key"]], **_provenance(s["key"])} for s in catalog()]
     src = SOURCES[source_id]
     bundle = {
         "schemaVersion": SCHEMA_VERSION,
@@ -273,8 +235,7 @@ def build_bundle(df: pd.DataFrame, source_id: str, extra: dict | None = None, ne
                                     "min": c} for c, n in TIMING_BUCKETS]},
             "viability": {"weights": VIABILITY_WEIGHTS, "minGroup": MIN_GROUP_SIZE,
                           "maxSize": MAX_STARTER_SIZE},
-            # only subspecialties this source can actually tell apart (real-mode NPI taxonomy
-            # has no imaging / advanced-heart-failure code) -- absent ones aren't "0"
+            # only subspecialties present in this source -- absent ones aren't "0"
             "subspecialties": [{"name": k, "econ": v[1]} for k, v in SUBSPECIALTIES.items() if k in present],
             "subspecialtiesAbsent": [k for k in SUBSPECIALTIES if k not in present],
             "metrics": metrics,
@@ -323,46 +284,9 @@ def _cached_entry(source_id: str) -> dict:
             "failedQueries": len(src.get("failedQueries", []))}
 
 
-def _real_identities(offline: bool) -> tuple[pd.DataFrame, dict]:
-    """Live-fetch real identities (refreshing the cache), else fall back to the cache."""
-    from engine.nppes_nlm import fetch_identities
-
-    live_failed: list[str] = []
-    if not offline:
-        try:
-            ids = fetch_identities()
-            failed = ids.attrs.get("failed_queries", [])
-            if failed and os.path.exists(IDENTITY_CACHE):
-                # partial universe: keep the complete cache, report what failed
-                live_failed = failed
-                print(f"  real      live fetch incomplete ({len(failed)} queries failed); "
-                      "keeping the complete cached identities")
-            else:
-                payload = {"fetchedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                           "failedQueries": failed, "rows": ids.to_dict("records")}
-                os.makedirs(os.path.dirname(IDENTITY_CACHE), exist_ok=True)
-                with open(IDENTITY_CACHE, "w") as f:
-                    json.dump(payload, f)
-                return ids, {"fetchedAt": payload["fetchedAt"], "failedQueries": failed,
-                             "fromCache": False}
-        except Exception as e:
-            if not os.path.exists(IDENTITY_CACHE):
-                raise
-            live_failed = [f"live fetch: {type(e).__name__}"]
-            print(f"  real      live fetch failed ({type(e).__name__}); rebuilding from cached identities")
-    if not os.path.exists(IDENTITY_CACHE):
-        raise RuntimeError("no cached identities yet -- run once with network access")
-    with open(IDENTITY_CACHE) as f:
-        payload = json.load(f)
-    return pd.DataFrame(payload["rows"]), {"fetchedAt": payload["fetchedAt"],
-                                            "failedQueries": payload["failedQueries"],
-                                            "fromCache": True,
-                                            **({"liveFailedQueries": live_failed} if live_failed else {})}
-
-
 def export(sources: list[str], offline: bool = False) -> dict:
     manifest = []
-    for sid in ["synthetic", "real", "public"]:
+    for sid in SOURCES:
         entry = {"id": sid, "label": SOURCES[sid]["label"],
                  "description": SOURCES[sid]["description"]}
         if sid not in sources:
@@ -373,16 +297,9 @@ def export(sources: list[str], offline: bool = False) -> dict:
             if sid == "synthetic":
                 df, news = apply_fictional_news(generate(n=1200, seed=RNG_SEED), "synthetic")
                 b = build_bundle(df, sid, {"seed": RNG_SEED}, news)
-            elif sid == "public":
+            else:
                 from engine.real_data import build_public_bundle
                 b = build_public_bundle(offline=offline)
-            else:
-                from engine.generate_data import generate_from_identities
-                from engine.nppes_nlm import API
-
-                ids, prov = _real_identities(offline)
-                df, news = apply_fictional_news(generate_from_identities(ids, seed=RNG_SEED), "real")
-                b = build_bundle(df, sid, {"seed": RNG_SEED, "api": API, **prov}, news)
             path = _write(sid, b)
             entry.update(available=True, count=b["source"]["count"],
                          generatedAt=b["source"]["generatedAt"],
@@ -390,7 +307,7 @@ def export(sources: list[str], offline: bool = False) -> dict:
                          **({"fetchedAt": b["source"]["fetchedAt"]} if "fetchedAt" in b["source"] else {}))
             print(f"  {sid:<9} {b['source']['count']:>5} leads  "
                   f"{len(b.get('groups', [])):>3} groups  -> {os.path.relpath(path, ROOT)}")
-        except Exception as e:  # keep a cached real bundle rather than losing it
+        except Exception as e:  # keep a cached bundle rather than losing it
             cached = _cached_entry(sid)
             entry.update(cached, error=cached.get("error") or f"{type(e).__name__}: {e}",
                          **({"stale": True} if cached["available"] else {}))
@@ -407,12 +324,12 @@ def export(sources: list[str], offline: bool = False) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Export web data bundles")
-    ap.add_argument("--source", choices=["synthetic", "real", "public", "all"], default="all")
+    ap.add_argument("--source", choices=[*SOURCES, "all"], default="all")
     ap.add_argument("--offline", action="store_true",
-                    help="no network: rebuild real from cached identities")
+                    help="no network: rebuild public from cached CMS pulls")
     args = ap.parse_args()
-    sources = ["synthetic", "real", "public"] if args.source == "all" else [args.source]
-    print("exporting web bundles" + (" (offline: real rebuilt from cached identities)" if args.offline else "") + " ...")
+    sources = list(SOURCES) if args.source == "all" else [args.source]
+    print("exporting web bundles" + (" (offline: public rebuilt from cached CMS pulls)" if args.offline else "") + " ...")
     export(sources, offline=args.offline)
 
 

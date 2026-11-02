@@ -1,5 +1,5 @@
 """Store the engine's data in Postgres: the cached public pulls (CMS Medicare + hospital
-ownership, NIH/NLM NPI registry) and every bundle the exporter wrote.
+ownership) and every bundle the exporter wrote.
 
     .venv/bin/python -m engine.db.load          # local (DATABASE_URL, default localhost:5432)
     docker compose run --rm loader              # inside Docker
@@ -46,7 +46,6 @@ from engine.db.models import (
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ALEMBIC_INI = os.path.join(ROOT, "alembic.ini")
 CMS_CACHE = os.path.join(ROOT, "data", "cache", "public_raw.json.gz")
-IDENTITY_CACHE = os.path.join(ROOT, "data", "cache", "real_identities.json")
 BUNDLES = os.path.join(ROOT, "web", "public", "data")
 
 # raw CMS column -> (table column, kind). The read side inverts these to rebuild the cache.
@@ -64,8 +63,6 @@ CHOW = {"CCN - BUYER": ("buyer_ccn", "text"), "CCN - SELLER": ("seller_ccn", "te
         "ORGANIZATION NAME - BUYER": ("buyer_name", "text"), "ORGANIZATION NAME - SELLER": ("seller_name", "text")}
 CMS_TABLES = {"prv": ("cms_provider_year", PRV), "svc": ("cms_provider_service", SVC),
               "hosp": ("cms_hospital", HOSP), "chow": ("cms_ownership_change", CHOW)}
-IDENTITY = {"npi": ("npi", "int"), "name": ("name", "text"), "raw_name": ("raw_name", "text"),
-            "metro": ("metro", "text"), "subspecialty": ("subspecialty", "text")}
 # bundle lists normalized into their own tables; every other top-level field -> export_run.document
 NORMALIZED = ("leads", "signals", "groups", "metros")
 
@@ -92,7 +89,7 @@ def require_head(conn: Connection) -> None:
 def _convert(value, kind: str):
     if value is None:
         return None
-    if kind in ("npi", "int"):  # npi: CMS sends it as a string; int: already a number
+    if kind == "npi":  # CMS sends it as a string
         return int(value)
     if kind == "num":
         return None if value == "" else Decimal(str(value))
@@ -164,20 +161,6 @@ def load_cms(conn: Connection, raw: dict, sha: str | None = None) -> int | None:
                 for y, rs in per_year for r in rs)
         counts[key] = (_bulk_copy if table in BULK else _copy)(conn, table, cols, rows)
     conn.execute(IngestRun.__table__.update().where(IngestRun.id == run).values(row_counts=counts))
-    return run
-
-
-def load_identities(conn: Connection, ids: dict, sha: str | None = None) -> int | None:
-    """Store one NPI-registry identity pull (engine.nppes_nlm). None if already stored."""
-    sha = sha or content_sha256(ids)
-    if _already(conn, "npi_registry", sha) is not None:
-        return None
-    layout = {"keys": list(ids), "columns": list(ids["rows"][0]) if ids.get("rows") else [],
-              "passthrough": {k: v for k, v in ids.items() if k not in ("rows", "fetchedAt")}}
-    run = _ingest_run(conn, "npi_registry", ids.get("fetchedAt"), sha, layout)
-    n = _copy(conn, "npi_identity", ["ingest_run_id"] + [c for c, _ in IDENTITY.values()],
-              ((run, *(_convert(r.get(src), kind) for src, (_, kind) in IDENTITY.items())) for r in ids.get("rows", [])))
-    conn.execute(IngestRun.__table__.update().where(IngestRun.id == run).values(row_counts={"rows": n}))
     return run
 
 
@@ -280,8 +263,6 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_raw:
         if os.path.exists(CMS_CACHE):
             step("cms_medicare (raw)", load_cms, CMS_CACHE)
-        if os.path.exists(IDENTITY_CACHE):
-            step("npi_registry (raw)", load_identities, IDENTITY_CACHE)
     if not args.no_bundles:
         for sid, path in _bundle_paths(args.bundles):
             step(f"{sid} (bundle)", load_bundle, path)

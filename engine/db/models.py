@@ -1,6 +1,6 @@
 """Tables, in three groups.
 
-  raw snapshots   every CMS / NPI-registry pull, verbatim and typed, tagged by ingest_run --
+  raw snapshots   every CMS pull, verbatim and typed, tagged by ingest_run --
                   diffing snapshots is how employer-change and peer-departure signals get built
   engine outputs  every exported bundle, normalized (lead, contribution, signal, cohort, ...)
                   with each full record kept as JSONB, so a bundle can be rebuilt exactly
@@ -41,7 +41,7 @@ NAMING = {
     "pk": "pk_%(table_name)s",
 }
 OUTREACH_OUTCOMES = ("no_response", "declined", "interested", "meeting", "joined")
-RAW_SOURCES = ("cms_medicare", "npi_registry")
+RAW_SOURCES = ("cms_medicare",)
 
 
 class Base(DeclarativeBase):
@@ -66,7 +66,7 @@ class IngestRun(Base):
     layout: Mapped[dict] = mapped_column(JSONB)
     __table_args__ = (
         UniqueConstraint("source", "content_sha256"),
-        CheckConstraint(f"source IN {RAW_SOURCES}", name="source"),
+        CheckConstraint(f"source IN ({', '.join(repr(s) for s in RAW_SOURCES)})", name="source"),
     )
 
 
@@ -126,19 +126,6 @@ class CmsOwnershipChange(Base):
     seller_ccn: Mapped[str | None] = mapped_column(Text)
     buyer_name: Mapped[str | None] = mapped_column(Text)
     seller_name: Mapped[str | None] = mapped_column(Text)
-
-
-class NpiIdentity(Base):
-    """Cardiologists from the public NIH/NLM NPI registry (real-identities mode)."""
-    __tablename__ = "npi_identity"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    ingest_run_id: Mapped[int] = mapped_column(_run_fk())
-    npi: Mapped[int] = mapped_column(BigInteger)
-    name: Mapped[str | None] = mapped_column(Text)
-    raw_name: Mapped[str | None] = mapped_column(Text)
-    metro: Mapped[str | None] = mapped_column(Text)
-    subspecialty: Mapped[str | None] = mapped_column(Text)
-    __table_args__ = (Index(None, "ingest_run_id", "npi"),)
 
 
 # --------------------------------------------------------------- engine outputs

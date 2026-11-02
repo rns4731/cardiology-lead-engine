@@ -24,7 +24,7 @@ export default function SignalsPage() {
           <>
             Propensity is a transparent weighted sum: each signal contributes up to its weight, and weights
             sum to 100. Each signal is checked on its own below. Together, {pct(m.precision["25"])} of the top 25 moved
-            {source === "real" ? " (simulated outcome)" : ""} against{" "}
+            against{" "}
             {pct(m.baseRate)} of everyone: {m.lift["25"]}× better than random, likely {ci(m.liftCi["25"], 1)}×.
           </>
         }
@@ -36,7 +36,7 @@ export default function SignalsPage() {
               <th className="px-5 py-3 font-semibold">Signal</th>
               <th className="py-3 pr-4 font-semibold">Weight</th>
               <th className="py-3 pr-4 font-semibold">Fires for</th>
-              <th className="py-3 pr-4 font-semibold">Move rate: active vs not{source === "real" ? " (simulated)" : ""}</th>
+              <th className="py-3 pr-4 font-semibold">Move rate: active vs not</th>
               <th className="py-3 pr-4 font-semibold">Predicts on its own?</th>
               <th className="py-3 pr-5 font-semibold">Data in this mode</th>
             </tr>
@@ -83,7 +83,6 @@ export default function SignalsPage() {
         simulation: small effects don't separate
         from noise with {m.n.toLocaleString()} cardiologists, and employer- or metro-level signals have far fewer independent
         data points than that. Measure them with real outcomes before changing any weight.
-        {source === "real" && " In real mode the outcome is simulated, so these figures demonstrate the method only."}
       </p>
       <ModelDiagnostics className="mt-6">
         <p>

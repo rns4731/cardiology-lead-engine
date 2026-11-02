@@ -7,8 +7,7 @@ and how long ago. Here Claude writes short local-news articles about those event
 distractors that must NOT produce an event -- denials of rumors, routine good news, an
 event too old to count, and another organization's layoffs that mention the system in
 passing. Then the same extractor used on real news reads every article, and its output
-(not the simulator's truth) feeds the employer-disruption signal in Synthetic and
-Real-identities modes. Because the truth is known, extraction accuracy is measured.
+(not the simulator's truth) feeds the employer-disruption signal in Synthetic mode. Because the truth is known, extraction accuracy is measured.
 
 Safety: every article only names the placeholder systems ("Austin System A"); people
 appear by role only; a deny-list check rejects any text naming a real health system in
@@ -201,11 +200,9 @@ def load_fake() -> dict | None:
 
 
 if __name__ == "__main__":
-    from engine.export_web import _real_identities
-    from engine.generate_data import RNG_SEED, generate, generate_from_identities
+    from engine.generate_data import RNG_SEED, generate
 
-    ids, _ = _real_identities(offline=True)
-    frames = {"synthetic": generate(n=1200, seed=RNG_SEED), "real": generate_from_identities(ids, seed=RNG_SEED)}
+    frames = {"synthetic": generate(n=1200, seed=RNG_SEED)}
     res = run(frames)
     with open(CACHE, "w") as f:
         json.dump(res, f, indent=1)

@@ -172,8 +172,11 @@ def _f(v: float | None) -> float | None:
 def compute(npis: list[int], *, subspecialty: dict[int, str], city: dict[int, tuple[str, str]],
             directory: Directory | None,
             wrvu: pd.Series | None, payments: dict | None, news: dict | None,
-            chow: list[dict], asof: date) -> tuple[dict, dict]:
-    """Per-NPI signal values and facts. Returns ({npi: {key: value|None}}, {npi: {...facts}})."""
+            chow: list[dict], asof: date, cms_only: bool = False) -> tuple[dict, dict]:
+    """Per-NPI signal values and facts. Returns ({npi: {key: value|None}}, {npi: {...facts}}).
+
+    cms_only: employer disruption from CMS ownership-change records alone (no news) -- used
+    by the back-test, whose news would have to predate its prediction date."""
     values, facts = {}, {}
     wr_pct = wrvu.rank(pct=True) if wrvu is not None else None
     D = directory
@@ -317,12 +320,18 @@ def compute(npis: list[int], *, subspecialty: dict[int, str], city: dict[int, tu
                                                  f"{str(e.get('ORGANIZATION NAME - BUYER') or '').title()} ({e.get('CHOW TYPE TEXT') or 'change of ownership'})",
                                         "status": "completed", "title": None, "publisher": "CMS Hospital Change of Ownership",
                                         "url": None, "reports": 1})
+            if cms_only:
+                ev_list = [e for e in ev_list if e["kind"] == "cms"]
             if ids:
                 if ev_list:
                     top = min(ev_list, key=lambda e: e["monthsAgo"])
                     v["disruption"] = _f(math.exp(-top["monthsAgo"] / 12.0))
                     fx["disruption"] = (f"{top['type'].replace('_', ' ').capitalize()} at {top['entity']} "
                                         f"({top['via']}), {top['monthsAgo']:.0f} months ago")
+                elif cms_only:
+                    v["disruption"] = 0.0
+                    fx["disruption"] = (f"No CMS ownership change in 36 months at {len(hosp)} affiliated hospital(s) "
+                                        "(news not searched)")
                 elif news is not None:
                     v["disruption"] = 0.0
                     fx["disruption"] = (f"No qualifying event in 36 months of news or CMS ownership records for "

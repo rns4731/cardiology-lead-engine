@@ -1,6 +1,6 @@
 import { Component, useEffect, type ErrorInfo, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigationType } from "react-router-dom";
-import { BadgeCheck, ChevronRight, Database, FlaskConical, HeartPulse } from "lucide-react";
+import { BadgeCheck, ChevronRight, FlaskConical, HeartPulse } from "lucide-react";
 import { isSourceId, paths, SOURCE_LABEL, SOURCE_SHORT, SOURCES, switchSourcePath } from "../../lib/paths";
 import type { SourceId } from "../../types";
 
@@ -24,10 +24,10 @@ export function Brand() {
   );
 }
 
-const SOURCE_ICON = { public: BadgeCheck, synthetic: FlaskConical, real: Database } as const;
-const SOURCE_TINT = { public: "text-emerald-300", synthetic: "text-brand-light", real: "text-amber-300" } as const;
+const SOURCE_ICON = { public: BadgeCheck, synthetic: FlaskConical } as const;
+const SOURCE_TINT = { public: "text-emerald-300", synthetic: "text-brand-light" } as const;
 
-/** Header data-source toggle: all three options, current one highlighted. */
+/** Header data-source toggle: both options, current one highlighted. */
 function SourceSwitch({ source }: { source: SourceId }) {
   const { pathname, search } = useLocation();
   return (

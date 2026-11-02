@@ -20,12 +20,10 @@ from engine.scoring import score_frame
 OUT_DIR = os.path.join(os.path.dirname(__file__), "outputs")
 
 
-def write_outputs(scored: pd.DataFrame, out_dir: str, real: bool) -> None:
-    """Scored leads CSV. Evaluation-only columns never sit next to real identities."""
+def write_outputs(scored: pd.DataFrame, out_dir: str) -> None:
+    """Scored leads CSV (synthetic universe, so the hidden label may sit alongside)."""
     os.makedirs(out_dir, exist_ok=True)
-    hidden = ["will_move_24mo", "latent_signal"] if real else []
-    scored.drop(columns=[c for c in hidden if c in scored]).to_csv(
-        os.path.join(out_dir, "leads_scored.csv"), index=False)
+    scored.to_csv(os.path.join(out_dir, "leads_scored.csv"), index=False)
 
 
 def main() -> None:
@@ -34,35 +32,13 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--min-score", type=int, default=55, help="propensity floor for group members")
     ap.add_argument("--top", type=int, default=10, help="top leads to print")
-    ap.add_argument("--real", action="store_true",
-                    help="pull REAL cardiologist identities from the public NPPES API "
-                         "(falls back to synthetic if offline)")
-    ap.add_argument("--per-metro", type=int, default=40, help="real identities per metro (--real)")
     args = ap.parse_args()
 
     pd.set_option("display.max_colwidth", 60)
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    if args.real:
-        print("1/4  fetching REAL cardiologist identities (NIH/NLM, then CMS NPPES) ...")
-        df = None
-        try:
-            from engine.nppes_nlm import load_real_universe as nlm_universe
-            df = nlm_universe(seed=args.seed)
-        except Exception as e:
-            print(f"     NIH/NLM unreachable ({type(e).__name__}); trying CMS NPPES")
-            try:
-                from engine.nppes import load_real_universe
-                df = load_real_universe(per_metro=args.per_metro, seed=args.seed)
-            except Exception as e2:
-                print(f"     CMS NPPES unreachable ({type(e2).__name__}); falling back to synthetic")
-        if df is None:
-            df = generate(n=args.n, seed=args.seed)
-        else:
-            print(f"     got {len(df)} real identities + simulated behavioral overlay")
-    else:
-        print("1/4  generating synthetic cardiologist universe ...")
-        df = generate(n=args.n, seed=args.seed)
+    print("1/4  generating synthetic cardiologist universe ...")
+    df = generate(n=args.n, seed=args.seed)
 
     print("2/4  scoring propensity + timing ...")
     scored = score_frame(df)
@@ -91,7 +67,7 @@ def main() -> None:
         print(members[best].to_string(index=False))
 
     # persist
-    write_outputs(scored, OUT_DIR, real=args.real)
+    write_outputs(scored, OUT_DIR)
     if not summary.empty:
         summary.to_csv(os.path.join(OUT_DIR, "group_candidates.csv"), index=False)
         pd.concat(

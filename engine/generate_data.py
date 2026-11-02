@@ -17,8 +17,6 @@ the scorer -- which only sees the observable features -- can be evaluated honest
 """
 from __future__ import annotations
 
-import zlib
-
 import numpy as np
 import pandas as pd
 
@@ -71,14 +69,8 @@ def _sigmoid(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-x))
 
 
-def _synth_row(rng, idx, metro, system, sub, independent_groups_metro, disruption_tuple,
-               npi=None, name=None):
-    """Synthesize one cardiologist's behavioral features + hidden label.
-
-    Shared by the pure-synthetic generator and the real-NPPES overlay. When `npi`
-    and `name` are supplied (real-identity mode) they replace the synthetic ones;
-    everything else -- the behavioral signals, which are NOT public -- is modeled.
-    """
+def _synth_row(rng, idx, metro, system, sub, independent_groups_metro, disruption_tuple):
+    """Synthesize one cardiologist's identity, behavioral features + hidden label."""
     sub_econ = SUBSPECIALTIES.get(sub, (0.0, 0.60))[1]
 
     years_in_practice = int(np.clip(rng.normal(16, 8), 1, 38))
@@ -127,8 +119,8 @@ def _synth_row(rng, idx, metro, system, sub, independent_groups_metro, disruptio
     will_move_24mo = int(rng.random() < _sigmoid(logit))
 
     return {
-        "npi": npi if npi is not None else 1000000000 + idx,  # synthetic is NPPES-shaped
-        "name": name if name is not None else f"Dr. {rng.choice(_FIRST)} {rng.choice(_LAST)}",
+        "npi": 1000000000 + idx,  # synthetic is NPPES-shaped
+        "name": f"Dr. {rng.choice(_FIRST)} {rng.choice(_LAST)}",
         "metro": metro,
         "employer": system,
         "subspecialty": sub,
@@ -198,45 +190,6 @@ def generate(n: int = 1200, seed: int = RNG_SEED) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     # local pool size: how many hospital-employed peers share the metro
-    df["local_peer_count"] = df.groupby("metro")["npi"].transform("count")
-    return df
-
-
-def _stable_metro_context(seed: int, metros):
-    """Like _metro_context, but each metro draws from its own (seed, metro) stream."""
-    independent_groups, disruption = {}, {}
-    for m in metros:
-        g, d = _metro_context(np.random.default_rng([seed, zlib.crc32(m.encode())]), [m])
-        independent_groups.update(g)
-        disruption.update(d)
-    return independent_groups, disruption
-
-
-def generate_from_identities(identities: pd.DataFrame, seed: int = RNG_SEED) -> pd.DataFrame:
-    """Overlay synthetic behavioral features onto REAL cardiologist identities.
-
-    `identities` must have columns: npi, name, metro, subspecialty (as returned by
-    engine.nppes_nlm.fetch_identities). Identity/location/subspecialty are real and
-    public; the behavioral signals (not public) are modeled via `_synth_row`.
-
-    Every identity draws from its own (seed, npi) stream and every metro from its own
-    (seed, metro) stream, so a registrant joining or leaving the registry -- or the API
-    returning rows in a different order -- never changes anyone else's profile.
-    """
-    metros = sorted(identities["metro"].unique())
-    independent_groups, disruption = _stable_metro_context(seed, metros)
-
-    rows = []
-    for i, rec in identities.reset_index(drop=True).iterrows():
-        metro = rec["metro"]
-        rng = np.random.default_rng([seed, int(rec["npi"])])
-        system = rng.choice(METROS.get(metro, ["Regional Health System"]))
-        rows.append(
-            _synth_row(rng, i, metro, system, rec["subspecialty"],
-                       independent_groups[metro], disruption[(metro, system)],
-                       npi=rec["npi"], name=rec["name"])
-        )
-    df = pd.DataFrame(rows)
     df["local_peer_count"] = df.groupby("metro")["npi"].transform("count")
     return df
 

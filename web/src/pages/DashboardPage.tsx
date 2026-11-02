@@ -78,7 +78,7 @@ export default function DashboardPage() {
           to={paths.cardiologists(source, { timing: "Now" })}
         />
         <StatTile
-          label={source === "real" ? "Top 25 vs. random (simulated)" : "Top 25 vs. random"}
+          label="Top 25 vs. random"
           value={`${m.lift["25"]}×`}
           sub={`${pct(m.precision["25"])} moved vs ${pct(m.baseRate)} overall · likely ${ci(m.liftCi["25"], 1)}×`}
           to={paths.signals(source)}
@@ -209,18 +209,14 @@ export default function DashboardPage() {
               r.groups,
             ]),
           }}
-          footer={
-            source === "real"
-              ? "Hit rate = share of qualified leads who moved; movers caught = share of all movers who qualified. Both use the simulated outcome: they demonstrate the method, not real-world accuracy. Small or overlapping cells are withheld so no individual outcome can be inferred."
-              : "Hit rate = share of qualified leads who moved; movers caught = share of all movers who qualified. Both use a simulated outcome built from the model's own hypotheses — they test the pipeline, not the hypotheses. Small or overlapping cells are withheld so no individual outcome can be inferred."
-          }
+          footer="Hit rate = share of qualified leads who moved; movers caught = share of all movers who qualified. Both use a simulated outcome built from the model's own hypotheses — they test the pipeline, not the hypotheses. Small or overlapping cells are withheld so no individual outcome can be inferred."
         >
           <Sensitivity sweep={sweep} floor={floor} minN={meta.minN} />
         </ChartFrame>
         <ChartFrame
           className="lg:col-span-2"
           title="The ten signals"
-          subtitle={`Weight in the score, and whether each one predicts on its own${source === "real" ? " (simulated outcome)" : ""}. Click one to see how it's computed.`}
+          subtitle="Weight in the score, and whether each one predicts on its own. Click one to see how it's computed."
           table={{
             columns: ["Signal", "Weight", "On its own"],
             rows: signals.map((s) => [s.label, s.weight, aucVerdict(s.auc, s.aucCi).label]),

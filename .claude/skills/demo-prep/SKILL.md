@@ -7,8 +7,8 @@ disable-model-invocation: true
 # Demo prep (debrief with the executive panel)
 
 ## T-1 day
-1. `.venv/bin/python -m engine.export_web` (live; refreshes real identities) — confirm
-   `failedQueries` is empty and the manifest shows both sources available.
+1. `.venv/bin/python -m engine.export_web --offline` — confirm the manifest shows both
+   sources (Synthetic, Real data) available.
 2. `/adversarial-review all` — no open S1/S2.
 3. `scripts/smoke.sh` with the dev server up — every rung green; open the screenshots.
 4. Confirm the numbers quoted in `docs/approach.md`, `README.md` and the landing page match
@@ -21,7 +21,7 @@ disable-model-invocation: true
 docker compose up --build -d    # http://localhost:8080 — production build, no local toolchain
 # or, for live edits: npm --prefix web run dev   (http://localhost:5190)
 ```
-Close other tabs; zoom 100%; real bundle already exported (no live network needed).
+Close other tabs; zoom 100%; bundles already exported (no live network needed).
 
 ## Walkthrough (~12 min of the 60)
 1. **Landing (2 min)** — the funnel; why identify + assemble; what was deliberately deferred.
@@ -31,8 +31,9 @@ Close other tabs; zoom 100%; real bundle already exported (no live network neede
 4. **Dashboard (3 min)** — map → strongest cohort → "who would strengthen it".
 5. **Cardiologist (2 min)** — why this score, why this window, cohorts they could join,
    colleagues/similar/complements.
-6. **Toggle to Real (2 min)** — real NPI identities, simulated signals; the banner and
-   provenance badges; what changes with real behavioral data.
+6. **Toggle to Real data (2 min)** — real CMS records, nine of ten signals filled and
+   labeled by provenance, nothing scored: what's knowable today without a real outcome. Why
+   there's no "real names + simulated scores" mode: a fake score on a real person reads as fact.
 
 ## Hard questions to rehearse
 - "How do you know the weights are right?" → they're priors; per-signal AUC shows which to

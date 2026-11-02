@@ -89,8 +89,7 @@ interface DataValue {
 
 const DataCtx = createContext<DataValue | null>(null);
 
-/** Subspecialties this source can actually tell apart (real-mode NPI taxonomy has no
- *  imaging / advanced-heart-failure code -- those are absent, not zero). */
+/** Subspecialties present in this source (absent ones are omitted, not zero). */
 export function useSubspecialties(): string[] {
   return useData().bundle.meta.subspecialties.map((s) => s.name);
 }

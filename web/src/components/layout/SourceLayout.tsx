@@ -1,14 +1,13 @@
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { BadgeCheck, Database, FlaskConical, ShieldAlert } from "lucide-react";
+import { BadgeCheck, FlaskConical } from "lucide-react";
 import { DataProvider, useData, useManifest } from "../../lib/data";
-import { relativeDate } from "../../lib/format";
 import { isSourceId, paths, SOURCE_LABEL, SOURCES, switchSourcePath } from "../../lib/paths";
 import type { Manifest, SourceId } from "../../types";
 import { ErrorState, LoadingState } from "../ui";
 import { ErrorBoundary } from "./AppShell";
 
-/** Route element for /:source/* (Synthetic, Real identities) -- validates the source and
- *  provides its data. Real data (/public/*) has its own layout: RealDataLayout. */
+/** Route element for /:source/* (Synthetic) -- validates the source and provides its
+ *  data. Real data (/public/*) has its own layout: RealDataLayout. */
 export function SourceLayout() {
   const { source } = useParams();
   const { pathname } = useLocation();
@@ -52,40 +51,11 @@ export function SourceLayout() {
       )}
     >
       <div className="mx-auto max-w-7xl px-4 pb-8 pt-6 sm:px-6">
-        {source === "real" && <RealDataBanner />}
         <ErrorBoundary resetKey={pathname}>
           <Outlet />
         </ErrorBoundary>
       </div>
     </DataProvider>
-  );
-}
-
-/** Persistent honesty banner on every real-data page. */
-function RealDataBanner() {
-  const { bundle } = useData();
-  return (
-    <div className="mb-6 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-      <ShieldAlert size={18} className="mt-0.5 shrink-0 text-amber-600" />
-      <div>
-        <span className="font-semibold">Real identities, simulated signals.</span> Names, NPIs,
-        locations and subspecialties are real public NPI-registry records ({bundle.source.count.toLocaleString()}{" "}
-        cardiologists, fetched {relativeDate(bundle.source.fetchedAt ?? bundle.source.generatedAt)}). Employers, every
-        behavioral signal, scores and cohorts are <span className="font-semibold">simulated</span> to
-        demonstrate the method and are not facts about these physicians.
-        {(bundle.source.failedQueries?.length ?? 0) > 0 && (
-          <span className="mt-1 block font-semibold">
-            Incomplete universe: {bundle.source.failedQueries!.length} registry queries failed, so some
-            cardiologists are missing.
-          </span>
-        )}
-        {(bundle.source.liveFailedQueries?.length ?? 0) > 0 && (
-          <span className="mt-1 block">
-            The latest refresh failed; showing the last complete fetch.
-          </span>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -98,7 +68,7 @@ export function SourceToggle() {
 export function SourceToggleView({ source, manifest }: { source: SourceId; manifest: Manifest }) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  const icons = { synthetic: FlaskConical, real: Database, public: BadgeCheck } as const;
+  const icons = { synthetic: FlaskConical, public: BadgeCheck } as const;
   return (
     <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm" role="radiogroup" aria-label="Data source">
       {[...manifest.sources].sort((a, b) => SOURCES.indexOf(a.id) - SOURCES.indexOf(b.id)).map((s) => {
@@ -146,10 +116,9 @@ export function NotFoundBody() {
 /** Not-found for an entity inside a valid source (e.g. an NPI from the other dataset). */
 export function MissingEntity({ kind, id, back }: { kind: string; id: string; back: { label: string; to: string } }) {
   const { source } = useData();
-  const other: SourceId = source === "synthetic" ? "real" : "synthetic";
   return (
     <ErrorState title={`No ${kind} “${id}” in the ${source} data`}>
-      It may belong to the {other} dataset.{" "}
+      It may belong to the other dataset.{" "}
       <Link className="text-teal-700 underline" to={back.to}>
         {back.label}
       </Link>

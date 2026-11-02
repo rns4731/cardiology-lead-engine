@@ -11,7 +11,7 @@ matter more than feature count.
 ```
 engine/ (Python, numpy+pandas)          web/ (React 18 + TS + Vite + Tailwind v4)
   generate_data.py  synthetic universe    src/lib/data.tsx    fetch + cache bundles, index
-  nppes_nlm.py      REAL identities       src/lib/paths.ts    every URL; source in the path
+  real_data.py      Real data (CMS)       src/lib/paths.ts    every URL; source in the path
   scoring.py        propensity + timing   src/pages/*         one page per entity type
   signals.py        signal catalog        src/components/     links, charts, LeadTable
   clustering.py     cohort formation      src/test/           routes, crawler, lib tests
@@ -32,16 +32,17 @@ See docs/database.md.
 
 Data flows one way: **engine computes everything → JSON bundle → web renders**. Routes are
 `/:source/{dashboard,locations[/:slug],systems/:slug,cardiologists[/:npi],groups[/:id],signals[/:key]}`
-with `source ∈ {synthetic, real}`; `/` is the methodology landing page.
+with `source ∈ {synthetic, public}` (`public` = Real data, its own layout and pages); `/` is the
+methodology landing page.
 
 ## Commands
 
 ```bash
-.venv/bin/python -m pytest                          # engine tests (66)
-.venv/bin/python -m engine.export_web               # rebuild both bundles (real needs network)
-.venv/bin/python -m engine.export_web --offline     # rebuild; real from data/cache/real_identities.json
+.venv/bin/python -m pytest                          # engine tests (82)
+.venv/bin/python -m engine.export_web               # rebuild both bundles (Real data re-pulls CMS: network)
+.venv/bin/python -m engine.export_web --offline     # rebuild; Real data from the cached CMS pulls
 .venv/bin/python -m engine.bundle_check             # validate bundles on disk
-npm --prefix web run typecheck && npm --prefix web test   # TS + vitest (98)
+npm --prefix web run typecheck && npm --prefix web test   # TS + vitest (62)
 npm --prefix web run dev                            # http://localhost:5190
 node web/scripts/screenshots.mjs                    # visual QA in real Chrome (dev server up)
 scripts/smoke.sh                                    # the whole ladder, in order
@@ -73,16 +74,18 @@ nginx), `web/nginx.conf` (SPA fallback, but `/data/*` must 404 — never HTML), 
 6. **Hospital systems use placeholder names** (`{City} System A`). Simulated distress events
    must never attach to anything mistakable for a real organization
    (`test_d4_system_names_unmistakably_fictional`). Keep counts stable — they drive RNG draws.
-7. **Real mode is honest.** Only NPI, name, location, subspecialty are real; every page in
-   real mode shows the simulated-signals banner, and attributes carry Real/Simulated badges.
-   Never relabel a provider into a subspecialty they don't hold.
+7. **Never put real names on simulated data.** Real data mode shows real records only, each
+   signal labeled by provenance, and scores nothing. A mode that overlaid simulated signals on
+   real NPI-registry identities was removed (`test_no_real_identities_on_simulated_signals`):
+   a simulated score next to a real physician reads as a fact about them. Never relabel a
+   provider into a subspecialty they don't hold.
 8. **Seed-42 numbers are locked** (`test_seed42_metrics_locked`, `test_build_groups_golden`):
    AUC 0.621 (oracle ceiling 0.627), lift@25 2.24× (95% CI 1.36–3.20), base rate 19.7%. If they
    move, update docs/approach.md, README and the landing copy.
 9. **Data honesty in charts.** Missing/withheld values are omitted and labeled, never plotted
    as 0; every chart has a table twin; text never wears series colors; displayed numbers never
    round across a cutoff (`scoreInt`, truncated readiness).
-10. **No PHI, ever.** Public NPI-registry directory data or synthetic only.
+10. **No PHI, ever.** Public CMS / directory data or synthetic only.
 11. **Disclosure control.** Outcome aggregates cover ≥ `MIN_N` (20) leads, and published
     top-n figures are ≥ 20 apart (`insights.disclosure_control`, enforced by `bundle_check`).
 12. **Claims match evidence.** The simulated outcome shares the scorer's hypotheses: copy may
@@ -109,10 +112,7 @@ nginx), `web/nginx.conf` (SPA fallback, but `/data/*` must 404 — never HTML), 
 - `useParams()` in a parent layout route can't see child params — the nav parses the path.
 - `LeadTable` resets pagination on a content *signature*, not array identity.
 - jsdom: `import.meta.url` isn't `file:` — tests resolve from `process.cwd()`.
-- CMS `npiregistry.cms.gov` returned authoritative NXDOMAIN during the build; NIH/NLM
-  Clinical Tables is the live source. NLM has no cardiac-imaging or AHF taxonomy and
-  "Nuclear" matches Nuclear *Medicine* — real mode covers 3 subspecialties by design.
-- Network calls (export real, npm/pip install) need the sandbox disabled in this env.
+- Network calls (live export, npm/pip install) need the sandbox disabled in this env.
 - `np.histogram` float edges put exact values like 0.6 in the bin below — use `bin_counts`.
 - `toFixed(0)` rounds 54.8 to "55" and 64.9 to "65": next to a 55 floor or a 65 cutoff that
   contradicts the label. Use `scoreInt` / one decimal.
@@ -125,7 +125,6 @@ nginx), `web/nginx.conf` (SPA fallback, but `/data/*` must 404 — never HTML), 
 |---|---|
 | Change or add a scoring signal | `/add-signal` |
 | Regenerate data after any engine change | `/export-data` |
-| Touch the NPI ingestion | `/ingest-real-data` |
 | Add a page / entity to the app | `/add-page` |
 | Any UI or chart work | `/design-system` |
 | Before calling work done | `/run-tests` |

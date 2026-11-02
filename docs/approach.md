@@ -145,15 +145,13 @@ cardiologists — colleagues at the same employer (likely to move together), sim
 profiles, and the strongest candidate from each other subspecialty.
 
 A dashboard toggle switches between the **synthetic** universe (with a hidden outcome, used
-for validation) and **real identities**: all 1,087 cardiologists whose practice address is
-in the eight cities, pulled from the public NIH/NLM NPI registry. In real mode only NPI,
-name, location and subspecialty are real; employers, signals, outcomes and therefore scores
-are simulated, and every page says so.
+to test the pipeline) and **Real data**: real cardiologists from public CMS records, with
+signals filled from real records where they exist and nothing scored. An earlier mode put
+real NPI-registry names on simulated signals; it was removed, because a simulated score
+next to a real physician reads as a fact about them and adds nothing the synthetic universe
+doesn't already show.
 
 ## 6. What I'd do next (in priority order)
-0. **Already wired:** real identities from the NIH/NLM NPI registry (CMS NPPES returned
-   NXDOMAIN during the build, so it's the fallback). The "who/where/what" is real today;
-   only the propensity features are modeled.
 1. **Wire the remaining public sources** — *now done in the Real data mode*: CMS Doctors &
    Clinicians snapshots 2019–2026 (billing groups, graduation year, hospital affiliations),
    Medicare work RVUs, Open Payments, hospital ownership changes, and a news pipeline (Claude
@@ -176,19 +174,17 @@ are simulated, and every page says so.
 - Subspecialty mix matters for group viability; validate the exact mix with operators.
 
 ## 8. Data & AI tools
-- **Data:** no PHI. Real mode uses public NPI-registry directory records only; everything
-  behavioral is simulated. **Hospital systems use placeholder names** ("Denver System A") —
-  the generator attaches simulated mergers and distress to employers, and an evocative
-  invented name ("Rocky Mountain Regional") turned out to match a real VA medical center.
-  The registry's "Cardiovascular Disease" is shown as *General cardiology*, never as
-  "noninvasive", which the registry doesn't say. In Synthetic and Real-identities modes
-  no signal is connected to data — every value is simulated and labeled so; the app names
-  where each would come from in production and whether that source was reachable (several
-  CMS endpoints returned 403). The separate Real-signals mode computes ten signals from CMS
-  data and fits its weights to a real outcome. Timing also needs contract and non-compete
-  dates, which only relationships provide.
-- **Engineering practice:** 66 engine tests (including "flipping the hidden label changes no
-  score"), a bundle-contract validator the exporter runs before writing, 98 web tests
+- **Data:** no PHI. Real data mode uses public CMS records only and simulates nothing.
+  **Hospital systems use placeholder names** ("Denver System A") — the generator attaches
+  simulated mergers and distress to employers, and an evocative invented name ("Rocky
+  Mountain Regional") turned out to match a real VA medical center. In Synthetic mode no
+  signal is connected to data — every value is simulated and labeled so; the app names
+  where each would come from in production. Real data mode fills nine of the ten signals
+  from CMS records (each labeled exact, stand-in, inferred or assumption) and scores
+  nothing, because there is no real outcome to fit or check weights against. Timing also
+  needs contract and non-compete dates, which only relationships provide.
+- **Engineering practice:** 82 engine tests (including "flipping the hidden label changes no
+  score"), a bundle-contract validator the exporter runs before writing, 62 web tests
   including a crawler that follows every link from the dashboard and fails on any dead end,
   and visual QA in a real browser at desktop and phone width. The repo ships a `.claude/`
   folder with skills, an adversarial review process and the testing ladder. **The review was

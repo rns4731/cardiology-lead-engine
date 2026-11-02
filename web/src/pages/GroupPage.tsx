@@ -74,7 +74,7 @@ export default function GroupPage() {
       {qualRate != null && (
         <p className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
           <span className="font-semibold text-ink">A slate, not a group.</span>{" "}
-          In simulation{source === "real" ? " (simulated outcome)" : ""}, qualified cardiologists go independent at{" "}
+          In simulation, qualified cardiologists go independent at{" "}
           {pct(qualRate)}, so these{" "}
           {g.members.length} would yield about {(g.members.length * qualRate).toFixed(1)} founders. Landing five usually means
           approaching ~{Math.ceil(5 / qualRate)} qualified candidates — start with who would strengthen it, below.
@@ -87,8 +87,7 @@ export default function GroupPage() {
           <span>
             <span className="font-semibold">Shared trigger:</span>{" "}
             {g.sharedTrigger.members} of {g.members.length} members work at {g.sharedTrigger.employer}, which had a{" "}
-            {g.sharedTrigger.event}
-            {source === "real" ? " (simulated)" : ""}. Colleagues who leave together are the natural seed of a group.
+            {g.sharedTrigger.event}. Colleagues who leave together are the natural seed of a group.
           </span>
         </div>
       )}

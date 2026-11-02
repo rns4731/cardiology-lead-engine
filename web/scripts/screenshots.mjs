@@ -26,11 +26,6 @@ const pages = [
   ["signal", "/synthetic/signals/disruption"],
   ["news", "/synthetic/news"],
 ];
-if (manifest.sources.find((s) => s.id === "real")?.available) {
-  const real = await (await fetch(`${base}/data/real/bundle.json`)).json();
-  pages.push(["real-dashboard", "/real/dashboard"], ["real-cardiologist", `/real/cardiologists/${real.leads[0].npi}`]);
-}
-
 if (manifest.sources.find((s) => s.id === "public")?.available) {
   const pub = await (await fetch(`${base}/data/public/bundle.json`)).json();
   pages.push(

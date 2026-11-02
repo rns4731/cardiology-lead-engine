@@ -1,7 +1,7 @@
 """Generator: reproducibility, realism, and no claims about real organizations."""
 import pandas as pd
 
-from engine.generate_data import METRO_COORDS, METROS, generate, generate_from_identities
+from engine.generate_data import METRO_COORDS, METROS, generate
 
 REAL_SYSTEMS = ["Banner Health", "OhioHealth", "Mount Carmel", "Vanderbilt", "Atrium Health",
                 "Novant", "BayCare", "AdventHealth", "UCHealth", "Duke Health", "WakeMed",
@@ -35,13 +35,3 @@ def test_hospital_systems_are_fictional():
 
 def test_every_metro_has_coordinates():
     assert set(METROS) == set(METRO_COORDS)
-
-
-def test_identity_overlay_preserves_real_fields():
-    ids = pd.DataFrame([
-        {"npi": 1111111111, "name": "Dr. Real One", "metro": "Austin, TX", "subspecialty": "Interventional"},
-        {"npi": 2222222222, "name": "Dr. Real Two", "metro": "Denver, CO", "subspecialty": "Electrophysiology"},
-    ])
-    out = generate_from_identities(ids, seed=1)
-    for col in ["npi", "name", "metro", "subspecialty"]:
-        assert list(out[col]) == list(ids[col])

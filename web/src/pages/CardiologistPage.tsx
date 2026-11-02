@@ -23,7 +23,6 @@ export default function CardiologistPage() {
   const next = pos < bundle.leads.length - 1 ? bundle.leads[pos + 1] : null;
   const metro = index.metros.get(l.metroSlug)!;
   const floor = bundle.meta.operatingFloor;
-  const real = source === "real";
 
   return (
     <>
@@ -154,7 +153,7 @@ export default function CardiologistPage() {
           <Card>
             <CardHeader
               title="Top reasons"
-              subtitle={real ? "Simulated score drivers only — no facts about this physician are shown" : "Largest contributions first"}
+              subtitle="Largest contributions first"
               action={<ProvenancePill provenance="simulated" />}
             />
             <ul className="space-y-2 p-5 pt-3">
@@ -201,14 +200,10 @@ export default function CardiologistPage() {
       <SectionTitle>Attributes</SectionTitle>
       <Card className="p-5">
         <dl className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
-          {l.attributes ? (
-            l.attributes.map((a) => <Attr key={a.label} label={a.label} value={a.value} provenance={a.provenance} />)
-          ) : (
-          <>
-          <Attr label="NPI" value={l.npi} real={real} />
-          <Attr label="Name" value={l.name} real={real} />
-          <Attr label="Location" value={<MetroLink slug={l.metroSlug} />} real={real} />
-          <Attr label="Subspecialty" value={l.subspecialty} real={real} />
+          <Attr label="NPI" value={l.npi} />
+          <Attr label="Name" value={l.name} />
+          <Attr label="Location" value={<MetroLink slug={l.metroSlug} />} />
+          <Attr label="Subspecialty" value={l.subspecialty} />
           <Attr label="Employer" value={<SystemLink slug={l.systemSlug} />} />
           <Attr label="Employer event" value={l.disruptionEvent ? `${capitalize(l.disruptionEvent)}, ${l.disruptionMonthsAgo} mo ago` : "None"} />
           <Attr label="Age" value={l.age} />
@@ -221,29 +216,21 @@ export default function CardiologistPage() {
           <Attr label="Contract renewal in" value={`${l.contractMonths} mo`} />
           <Attr label="Non-compete expires in" value={l.noncompeteMonths ? `${l.noncompeteMonths} mo` : "Expired / none"} />
           <Attr label="Independent groups in metro" value={l.independentGroupsMetro} />
-          </>
-          )}
         </dl>
-        <p className="mt-4 text-xs text-slate-500">
-          {real
-            ? "Only real registry fields are shown for real physicians. Their scores are simulated; invented attributes (payments, events, history) are deliberately not displayed."
-            : "Every field in the synthetic dataset is simulated."}
-        </p>
+        <p className="mt-4 text-xs text-slate-500">Every field in the synthetic dataset is simulated.</p>
       </Card>
     </>
   );
 }
 
-function Attr({ label, value, provenance }: { label: string; value: ReactNode; real?: boolean; provenance?: string }) {
-  const { source } = useData();
+function Attr({ label, value }: { label: string; value: ReactNode }) {
   // every attribute states where it came from; Synthetic-mode fields are all simulated
-  const prov = provenance ?? (source === "synthetic" ? "simulated" : undefined);
   return (
     <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 text-sm">
       <dt className="text-slate-500">{label}</dt>
       <dd className="flex items-center gap-2 text-right font-medium text-ink">
         {value}
-        {prov && <ProvenancePill provenance={prov} />}
+        <ProvenancePill provenance="simulated" />
       </dd>
     </div>
   );

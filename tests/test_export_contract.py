@@ -43,7 +43,7 @@ def test_validator_catches_corruption(small_bundle):
     assert any("hidden outcome" in p for p in problems)
 
 
-@pytest.mark.parametrize("source", ["synthetic", "real"])
+@pytest.mark.parametrize("source", ["synthetic"])
 def test_bundles_on_disk(source):
     """The files the app actually serves. Skips a source that was never exported."""
     path = os.path.join(OUT, source, "bundle.json")

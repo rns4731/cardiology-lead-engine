@@ -13,7 +13,7 @@ step() { printf "\n\033[1m▶ %s\033[0m\n" "$1"; }
 step "1/6 engine tests (pytest)"
 $PY -m pytest
 
-step "2/6 rebuild bundles from current engine (offline; real from cached identities)"
+step "2/6 rebuild bundles from current engine (offline; Real data from cached CMS pulls)"
 $PY -m engine.export_web --offline
 
 step "3/6 bundle contract (engine/bundle_check.py)"

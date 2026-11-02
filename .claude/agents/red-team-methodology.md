@@ -17,8 +17,8 @@ rubric (note §5, known-deliberate decisions — don't re-litigate those), `docs
   section, approach doc): find where it's computed; does the text describe it correctly?
   ("precision" vs "share who move", "top 25" vs "top 50", base rate quoted for the right
   population, lift relative to what).
-- **Circularity.** Anywhere the model is graded on something it was tuned to; any metric in
-  real mode presented without saying the outcome is simulated; weights described as
+- **Circularity.** Anywhere the model is graded on something it was tuned to; any score,
+  rank or simulated value shown next to a real physician (Real data mode scores nothing); weights described as
   "validated" when they are domain-set.
 - **Small numbers.** Rates on tiny denominators (signal active for 12 people; a metro with
   3 qualified; precision at floor 70 with n=1) presented without caveat.

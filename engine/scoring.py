@@ -109,7 +109,7 @@ TIMING_WEIGHTS = {"trigger_recency": 45, "contract_window": 25, "noncompete": 18
 # where each readiness input would come from in production. Contract and non-compete
 # dates are NOT public: on public data alone readiness tops out at 45 + 12 = 57, below
 # the "Now" cutoff -- timing at its sharpest needs relationship data.
-# Production sources only -- none is connected; in Synthetic / Real-identities modes all
+# Production sources only -- none is connected; in Synthetic mode all
 # four inputs are simulated (the exporter adds provenance: "simulated").
 TIMING_SOURCES = {
     "trigger_recency": {"public": True, "source": "M&A / distress news and filings — not connected"},

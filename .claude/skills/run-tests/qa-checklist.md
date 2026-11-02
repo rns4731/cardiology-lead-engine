@@ -12,12 +12,12 @@ fails becomes a finding.
 - [ ] No value is shown for something missing (no 0% for "no data"; small n is caveated).
 
 ## Data source toggle
-- [ ] Dashboard toggle switches Synthetic ⇄ Real; KPIs, map and lists all change together.
+- [ ] Dashboard toggle switches Synthetic ⇄ Real data; KPIs, map and lists all change together.
 - [ ] Toggling on a location / signal / system page keeps you on that entity; on a
       cardiologist or cohort page it lands on the index (ids differ across sources).
-- [ ] Every `/real/*` page shows the amber "real identities, simulated signals" banner.
-- [ ] Real cardiologist page: Real badges only on NPI, name, location, subspecialty.
-- [ ] Outcome-based metrics in real mode say "simulated".
+- [ ] Real data pages show no score, rank, window or cohort, and every signal value carries
+      its provenance label (exact, stand-in, inferred, assumption, none).
+- [ ] `/real/dashboard` (the retired real-identities mode) is a not-found.
 
 ## Drill paths (click, don't type URLs)
 - [ ] Dashboard → map bubble → location → cohort card → member → signal → top cardiologist.
@@ -28,7 +28,7 @@ fails becomes a finding.
 
 ## Edge cases
 - [ ] An emerging metro (no cohort) shows the "needs N more" callout, not empty sections.
-- [ ] `/synthetic/cardiologists/1`, `/real/groups/nope`, `/synthetic/signals/x`, `/nope` all
+- [ ] `/synthetic/cardiologists/1`, `/public/groups/nope`, `/synthetic/signals/x`, `/nope` all
       render a friendly not-found with a way back.
 - [ ] Directory: filters compose; chips remove one filter; "Clear all" resets; sort and page
       survive in the URL (reload keeps them).

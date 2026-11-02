@@ -2,9 +2,9 @@
 
 The scorer (scoring.py) owns the weights and the arithmetic; this module owns the
 *explanation* -- what each signal means, the exact transform applied, and where it
-WOULD come from in production, with its true connection status. In Synthetic and
-Real-identities modes no signal is connected to data: the values are simulated, and
-the exporter labels every one of them "simulated" in the bundle. `level` says what the signal varies
+WOULD come from in production, with its true connection status. In Synthetic mode no
+signal is connected to data: the values are simulated, and the exporter labels every one
+of them "simulated" in the bundle. `level` says what the signal varies
 across (individual / employer / metro) -- a metro-level signal has 8 data points, not
 1,200, which bounds how much any sample can say about it. The web app's signal pages are
 rendered straight from this catalog, so keep `formula` in sync with the transforms
@@ -45,7 +45,7 @@ SIGNALS = {
         "rationale": "Procedure-heavy subspecialties (interventional, EP) sustain independent "
                      "economics; advanced heart failure is hospital-dependent.",
         "formula": "lookup: Interventional 1.00, EP 0.95, Imaging 0.65, General cardiology 0.60, AHF 0.35",
-        "production_source": "NPI taxonomy (subspecialty) with a fixed economics lookup. The subspecialty is real in Real-identities mode (NIH/NLM registry); the lookup values are an assumption. Simulated in Synthetic mode.",
+        "production_source": "NPI taxonomy (subspecialty) with a fixed economics lookup; the lookup values are an assumption. Simulated in Synthetic mode.",
         "public": True,
     },
     "productivity": {

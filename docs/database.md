@@ -22,12 +22,11 @@ Locally: `.venv/bin/python -m engine.db.serve` serves the same files on `localho
 
 | Group | Table | One row per |
 |---|---|---|
-| Raw snapshots | `ingest_run` | public pull (`cms_medicare` or `npi_registry`), keyed by content hash |
+| Raw snapshots | `ingest_run` | public pull (`cms_medicare`), keyed by content hash |
 | | `cms_provider_year` | NPI × Medicare year (name, address, type, volume) |
 | | `cms_provider_service` | NPI × HCPCS × place of service |
 | | `cms_hospital`, `cms_ownership_change` | hospital (CCN → city); change-of-ownership event |
-| | `npi_identity` | cardiologist from the NIH/NLM NPI registry |
-| Engine outputs | `export_run` | exported bundle (`synthetic`, `real`, `public`) |
+| Engine outputs | `export_run` | exported bundle (`synthetic`, `public`) |
 | | `export_manifest` | exporter's manifest.json (source order, labels, default) |
 | | `lead`, `lead_contribution` | lead per run; points per signal |
 | | `signal`, `cohort`, `cohort_member`, `metro_summary` | signal, candidate cohort, member, metro per run |
@@ -35,7 +34,10 @@ Locally: `.venv/bin/python -m engine.db.serve` serves the same files on `localho
 | Views | `current_export_run`, `current_lead` | latest export per source, and its leads |
 
 Every engine-output row keeps its full bundle record as JSONB, so `engine.db.read.bundle()`
-rebuilds a bundle exactly; `read.public_raw()` / `read.identities()` do the same for the caches.
+rebuilds a bundle exactly; `read.public_raw()` does the same for the CMS cache.
+
+Migration 0003 dropped `npi_identity` and deleted the stored `real` exports when the
+real-identities mode (real names on simulated signals) was removed.
 
 ## Serving
 

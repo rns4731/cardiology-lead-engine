@@ -20,6 +20,7 @@ async function expectPage(path: string, heading: string | RegExp) {
 describe("landing", () => {
   it("renders the methodology page", () => expectPage("/", /ready to go independent/i));
   it("unknown top-level path is a not-found", () => expectPage("/nope/at/all", /Page not found/));
+  it("the retired real-identities mode is a not-found", () => expectPage("/real/dashboard", /Page not found/));
 });
 
 for (const source of availableSources()) {

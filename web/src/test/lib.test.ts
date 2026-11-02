@@ -27,21 +27,24 @@ describe("format", () => {
 
 describe("paths", () => {
   it("builds query strings and drops empty values", () => {
-    expect(paths.cardiologists("real", { metro: "austin-tx", min: 55, q: "", group: undefined })).toBe(
-      "/real/cardiologists?metro=austin-tx&min=55"
+    expect(paths.cardiologists("synthetic", { metro: "austin-tx", min: 55, q: "", group: undefined })).toBe(
+      "/synthetic/cardiologists?metro=austin-tx&min=55"
     );
   });
   it("validates sources", () => {
     expect(isSourceId("synthetic")).toBe(true);
+    expect(isSourceId("public")).toBe(true);
+    expect(isSourceId("real")).toBe(false); // retired: real names on simulated signals
     expect(isSourceId("fake")).toBe(false);
   });
   it("keeps shared entities when switching source, falls back for source-specific ones", () => {
-    expect(switchSourcePath("/synthetic/locations/austin-tx", "", "real")).toBe("/real/locations/austin-tx");
-    expect(switchSourcePath("/synthetic/signals/disruption", "", "real")).toBe("/real/signals/disruption");
-    expect(switchSourcePath("/synthetic/cardiologists", "?metro=austin-tx", "real")).toBe("/real/cardiologists?metro=austin-tx");
-    expect(switchSourcePath("/synthetic/cardiologists/1000000378", "", "real")).toBe("/real/cardiologists");
-    expect(switchSourcePath("/synthetic/groups/columbus-oh-a", "", "real")).toBe("/real/groups");
-    expect(switchSourcePath("/", "", "real")).toBe("/real/dashboard");
+    expect(switchSourcePath("/synthetic/locations/austin-tx", "", "public")).toBe("/public/locations/austin-tx");
+    expect(switchSourcePath("/synthetic/signals/disruption", "", "public")).toBe("/public/signals/disruption");
+    expect(switchSourcePath("/synthetic/cardiologists", "?metro=austin-tx", "public")).toBe("/public/cardiologists?metro=austin-tx");
+    expect(switchSourcePath("/synthetic/cardiologists/1000000378", "", "public")).toBe("/public/cardiologists");
+    expect(switchSourcePath("/synthetic/groups/columbus-oh-a", "", "public")).toBe("/public/groups");
+    expect(switchSourcePath("/synthetic/systems/austin-system-a", "", "public")).toBe("/public/locations");
+    expect(switchSourcePath("/", "", "public")).toBe("/public/dashboard");
   });
 });
 

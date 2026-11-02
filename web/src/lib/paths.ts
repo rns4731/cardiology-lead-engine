@@ -1,22 +1,19 @@
 import type { SourceId } from "../types";
 
 // display order of the data-source toggles
-export const SOURCES: SourceId[] = ["public", "synthetic", "real"];
+export const SOURCES: SourceId[] = ["public", "synthetic"];
 
-export const isSourceId = (s: string | undefined): s is SourceId =>
-  s === "synthetic" || s === "real" || s === "public";
+export const isSourceId = (s: string | undefined): s is SourceId => s === "synthetic" || s === "public";
 
 export const SOURCE_LABEL: Record<SourceId, string> = {
   public: "Real data",
   synthetic: "Synthetic",
-  real: "Real identities + synthetic signals",
 };
 
 /** compact labels for the header toggle on small screens */
 export const SOURCE_SHORT: Record<SourceId, string> = {
   public: "Real",
   synthetic: "Synthetic",
-  real: "Real IDs",
 };
 
 type Query = Record<string, string | number | boolean | undefined | null>;

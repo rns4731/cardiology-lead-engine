@@ -7,7 +7,6 @@ import json
 import re
 
 import numpy as np
-import pandas as pd
 import pytest
 
 
@@ -51,19 +50,6 @@ def test_c1_timing_score_agrees_with_bucket(bundle42):
     buckets = bundle42["meta"]["timing"]["buckets"]
     for l in bundle42["leads"]:
         assert next(b["name"] for b in buckets if l["timingScore"] >= b["min"]) == l["timingBucket"], l["npi"]
-
-
-# ---- C2: a real physician's simulated profile doesn't depend on list position -------
-def test_c2_identity_overlay_is_order_independent():
-    from engine.generate_data import METROS, generate_from_identities
-
-    ids = pd.DataFrame([{"npi": 1_500_000_000 + i, "name": f"Dr. T {i}", "metro": m,
-                         "subspecialty": "Interventional"} for i, m in enumerate(list(METROS) * 15)])
-    a = generate_from_identities(ids, seed=1).set_index("npi")
-    b = generate_from_identities(ids.iloc[1:].sample(frac=1, random_state=3).reset_index(drop=True),
-                                 seed=1).set_index("npi")
-    cols = ["employer", "wrvu_percentile", "prior_independent", "disruption_event", "will_move_24mo"]
-    pd.testing.assert_frame_equal(a.loc[b.index, cols].sort_index(), b[cols].sort_index())
 
 
 # ---- C3: headline metrics don't depend on input row order ---------------------------
@@ -149,33 +135,11 @@ def test_c10_constant_columns(scored):
     assert not any("Subspecialty economics" in i["why"] for v in r.values() for i in v["similar"])
 
 
-# ---- D2: a partial live fetch never replaces the complete cache ---------------------
-def test_d2_partial_fetch_keeps_cache(tmp_path, monkeypatch):
-    import engine.export_web as ew
-    import engine.nppes_nlm as nl
-
-    full = pd.DataFrame([{"npi": 1, "name": "Dr. A One", "metro": "Austin, TX", "subspecialty": "Interventional"},
-                         {"npi": 2, "name": "Dr. B Two", "metro": "Denver, CO", "subspecialty": "Electrophysiology"}])
-    cache = tmp_path / "ids.json"
-    cache.write_text(json.dumps({"fetchedAt": "2026-01-01T00:00:00+00:00", "failedQueries": [],
-                                 "rows": full.to_dict("records")}))
-    monkeypatch.setattr(ew, "IDENTITY_CACHE", str(cache))
-    partial = full.iloc[:1].copy()
-    partial.attrs["failed_queries"] = ["Denver, CO / Cardiovascular @ offset 0: TimeoutError"]
-    monkeypatch.setattr(nl, "fetch_identities", lambda **kw: partial)
-    ids, prov = ew._real_identities(offline=False)
-    assert len(ids) == 2 and prov["fromCache"] is True
-    assert prov["liveFailedQueries"]
-    assert json.loads(cache.read_text())["rows"] == full.to_dict("records")
-
-
 # ---- D3 / D4: no invented clinical claims, no collisions with real hospitals --------
 def test_d3_no_noninvasive_label():
     from engine.generate_data import SUBSPECIALTIES
-    from engine.nppes_nlm import PROBES
 
     assert not any("Noninvasive" in s for s in SUBSPECIALTIES)
-    assert ("Cardiovascular", "Cardiovascular Disease", "General cardiology") in PROBES
 
 
 def test_d4_system_names_unmistakably_fictional():
@@ -186,37 +150,25 @@ def test_d4_system_names_unmistakably_fictional():
             assert re.fullmatch(rf"{metro.split(',')[0]} System [A-Z]", s), s
 
 
-# ---- D8: registry names with suffixes -----------------------------------------------
-@pytest.mark.parametrize("raw,want", [
-    ("TUCKER, PAUL, III", "Dr. Paul Tucker III"),
-    ("MAZZAFERRI, ERNEST, JR", "Dr. Ernest Mazzaferri Jr."),
-    ("SMITH, JOHN A", "Dr. John Smith"),
-    ("O'NEIL, MARY", "Dr. Mary O'Neil"),
-])
-def test_d8_parse_name(raw, want):
-    from engine.nppes_nlm import _parse_name
-
-    assert _parse_name(raw) == want
-
-
 # ---- D9: a cached bundle from an older schema is not "available" --------------------
 def test_d9_old_schema_cache_unavailable(tmp_path, monkeypatch):
     import engine.export_web as ew
 
     monkeypatch.setattr(ew, "OUT", str(tmp_path))
-    (tmp_path / "real").mkdir()
-    (tmp_path / "real" / "bundle.json").write_text(json.dumps(
+    (tmp_path / "synthetic").mkdir()
+    (tmp_path / "synthetic" / "bundle.json").write_text(json.dumps(
         {"schemaVersion": 1, "source": {"count": 5, "generatedAt": "x"}}))
-    entry = ew._cached_entry("real")
+    entry = ew._cached_entry("synthetic")
     assert entry["available"] is False and "schema" in entry["error"]
 
 
-# ---- D10: the CLI never writes a simulated outcome next to real identities ----------
-def test_d10_real_csv_has_no_label(tmp_path, scored):
-    import run
+# ---- no mode puts real physicians' names on simulated signals -----------------------
+def test_no_real_identities_on_simulated_signals():
+    from engine.export_web import SOURCES
 
-    run.write_outputs(scored, out_dir=str(tmp_path), real=True)
-    assert "will_move_24mo" not in pd.read_csv(tmp_path / "leads_scored.csv").columns
+    assert set(SOURCES) == {"synthetic", "public"}
+    with pytest.raises(ImportError):
+        import engine.nppes_nlm  # noqa: F401
 
 
 # ---- M1 / M5 / M6 / M3: the honest context the copy now relies on -------------------

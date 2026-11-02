@@ -30,7 +30,7 @@ from engine.db.models import Base, ExportRun, IngestRun, Lead, LeadContribution,
 
 TEST_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+psycopg://leads:leads@localhost:5432/leads_test")
 VIEWS = {"current_export_run", "current_lead"}
-SOURCES = [s for s in ("synthetic", "real", "public") if os.path.exists(os.path.join(load.BUNDLES, s, "bundle.json"))]
+SOURCES = [s for s in ("synthetic", "public") if os.path.exists(os.path.join(load.BUNDLES, s, "bundle.json"))]
 
 RAW = {  # a miniature public_fetch pull: every table, every column kind
     "prv": {
@@ -49,9 +49,6 @@ RAW = {  # a miniature public_fetch pull: every table, every column kind
     "dac": [{"anything": 1}],  # a dataset the loader doesn't model yet is kept verbatim
     "fetchedAt": "2026-10-31T01:28:47+00:00",
 }
-IDENTITIES = {"fetchedAt": "2026-10-29T17:44:48+00:00", "failedQueries": [],
-              "rows": [{"npi": 1000000001, "name": "Dr. Ana Smith", "raw_name": "SMITH, ANA",
-                        "metro": "Phoenix, AZ", "subspecialty": "Interventional"}]}
 
 
 def _alembic(url, *args) -> None:
@@ -141,16 +138,9 @@ def test_a_changed_pull_is_a_new_snapshot(db):
         assert first != second
 
 
-def test_identity_pull_round_trips_exactly(db):
-    with db.begin() as c:
-        assert load.load_identities(c, IDENTITIES) is not None
-        assert load.load_identities(c, IDENTITIES) is None
-    with db.connect() as c:
-        assert read.identities(c) == IDENTITIES
-
 
 # -------------------------------------------------------------- engine outputs
-@pytest.mark.parametrize("source", ["synthetic", "real", "public"])
+@pytest.mark.parametrize("source", ["synthetic", "public"])
 def test_bundle_round_trips_exactly(db, source):
     b = _bundle(source)
     with db.begin() as c:

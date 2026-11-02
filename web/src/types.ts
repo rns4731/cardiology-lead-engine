@@ -2,7 +2,7 @@
 // Field names are camelCase; identifier keys (signal ids, timing/viability
 // component ids) keep their engine spelling, e.g. contributions.career_stage.
 
-export type SourceId = "synthetic" | "real" | "public";
+export type SourceId = "synthetic" | "public";
 export type TimingBucket = "Now" | "Near" | "Later" | "Watch";
 export type Counts = Record<string, number>;
 
@@ -72,8 +72,6 @@ export interface Lead {
   group: string | null;
   candidateGroups: CandidateGroup[];
   related: { colleagues: RelatedRef[]; similar: RelatedRef[]; complements: RelatedRef[] };
-  /** source-specific attribute list (Real identities mode); overrides the default fields */
-  attributes?: { label: string; value: string; provenance?: "real" | "derived" | "simulated" }[];
 }
 
 export interface HistBin {
@@ -224,11 +222,6 @@ export interface Bundle {
     count: number;
     generatedAt: string;
     seed?: number;
-    api?: string;
-    failedQueries?: string[];
-    fetchedAt?: string;
-    fromCache?: boolean;
-    liveFailedQueries?: string[];
   };
   meta: Meta;
   signals: Signal[];

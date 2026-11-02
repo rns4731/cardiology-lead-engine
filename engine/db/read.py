@@ -14,7 +14,7 @@ import pandas as pd
 from sqlalchemy import select, text
 from sqlalchemy.engine import Connection
 
-from engine.db.load import CMS_TABLES, IDENTITY, NORMALIZED
+from engine.db.load import CMS_TABLES, NORMALIZED
 from engine.db.models import Cohort, ExportManifest, ExportRun, IngestRun, Lead, MetroSummary, Signal
 
 _RECORDS = {"leads": Lead, "signals": Signal, "groups": Cohort, "metros": MetroSummary}
@@ -64,19 +64,6 @@ def public_raw(conn: Connection, run_id: int | None = None) -> dict:
                         if isinstance(cols, dict) else _rows(conn, table, run.id, spec, cols))
     return out
 
-
-def identities(conn: Connection, run_id: int | None = None) -> dict:
-    """The NPI-registry pull (latest, or `run_id`) in engine.nppes_nlm's cache format."""
-    run = _ingest_run(conn, "npi_registry", run_id)
-    out: dict = {}
-    for key in run.layout["keys"]:
-        if key == "rows":
-            out[key] = _rows(conn, "npi_identity", run.id, IDENTITY, run.layout["columns"])
-        elif key == "fetchedAt":
-            out[key] = run.fetched_at.isoformat() if run.fetched_at else None
-        else:
-            out[key] = run.layout["passthrough"][key]
-    return out
 
 
 def bundle(conn: Connection, source_id: str, run_id: int | None = None) -> dict:

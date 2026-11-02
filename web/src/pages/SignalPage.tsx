@@ -16,7 +16,7 @@ import { LeadTable } from "../components/LeadTable";
 import { AUC_PLAIN, Diagnostics } from "../components/Diagnostics";
 
 /** On/off only when every occupied bin is an end bin (0 or 1). A two-value signal like
- *  real-mode subspecialty economics (0.6 and 1.0) is not "off vs on". */
+ *  0.6 / 1.0 is not "off vs on". */
 export function isBinary(hist: HistBin[]): boolean {
   const occupied = hist.flatMap((b, i) => (b.count > 0 ? [i] : []));
   return occupied.length > 0 && occupied.every((i) => i === 0 || i === hist.length - 1);
@@ -35,7 +35,6 @@ export default function SignalPage() {
   const floorPct = Math.round(bundle.meta.reasonFloor * 100);
   const binary = isBinary(s.hist);
   const verdict = aucVerdict(s.auc, s.aucCi);
-  const sim = source === "real" ? " (simulated outcome)" : "";
   const n = bundle.meta.metrics.n;
   const moved = [
     { key: "a", label: "Signal active", value: s.moveRateActive, color: SEQ },
@@ -105,7 +104,7 @@ export default function SignalPage() {
         </Card>
       </div>
 
-      <SectionTitle>Does it predict who moves?{sim}</SectionTitle>
+      <SectionTitle>Does it predict who moves?</SectionTitle>
       {s.units.level !== "individual" && (
         <p className="-mt-1 mb-3 text-sm text-slate-600">
           This signal is set per {s.units.level}: it varies across {s.units.varying} of {s.units.total}{" "}
@@ -123,7 +122,7 @@ export default function SignalPage() {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartFrame
           title="Who moved, with vs. without this signal"
-          subtitle={`Share who went independent within 24 months (${source === "real" ? "simulated" : "hidden, simulated"} outcome).`}
+          subtitle="Share who went independent within 24 months (hidden, simulated outcome)."
           table={{
             columns: ["Group", "Move rate"],
             rows: [
@@ -179,26 +178,22 @@ export default function SignalPage() {
         <Card className="p-3 lg:col-span-3">
           <div className="px-2 pb-1 pt-2">
             <h3 className="text-[15px] font-semibold text-ink">Where it drives the score most</h3>
-            <p className="text-sm text-slate-500">
-              {source === "real"
-                ? "Not shown in this mode: ranking real, named physicians by a simulated attribute would attribute invented facts to them."
-                : "Top cardiologists by points from this signal."}
-            </p>
+            <p className="text-sm text-slate-500">Top cardiologists by points from this signal.</p>
           </div>
-          {source !== "real" && <LeadTable
+          <LeadTable
             leads={top}
             initialSort={null}
             pageSize={12}
             cols={["name", "metro", "subspecialty", "propensity"]}
             extra={{ header: "Points", cell: (l) => <span className="font-semibold tabular-nums text-ink">{(l.contributions[s.key] ?? 0).toFixed(1)}</span> }}
-          />}
+          />
         </Card>
       </div>
 
       <Diagnostics className="mt-6" title="Signal diagnostics" hint="This signal's AUC, for technical readers">
         <p>
           <span className="font-semibold tabular-nums text-ink">AUC on its own {s.auc.toFixed(3)}</span>, 95% range{" "}
-          <span className="tabular-nums">{ci(s.aucCi, 3)}</span>{sim}. {AUC_PLAIN}
+          <span className="tabular-nums">{ci(s.aucCi, 3)}</span>. {AUC_PLAIN}
         </p>
         <p>
           The verdict above comes from that range: entirely above 0.5 is better than chance, entirely below is worse, and a

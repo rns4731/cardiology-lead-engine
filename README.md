@@ -21,14 +21,14 @@ open http://localhost:8080
 |---|---|
 | `db` | Postgres 17 — the engine's system of record (`localhost:5432`, user/db `leads`) |
 | `migrate` | one-shot `alembic upgrade head`: creates / migrates the tables |
-| `exporter` | one-shot Python engine: scores both universes, writes the JSON bundles to a shared volume (offline; real identities come from the committed cache) |
+| `exporter` | one-shot Python engine: builds the Synthetic and Real data bundles and writes them to a shared volume (offline; Real data comes from the committed CMS cache) |
 | `loader` | one-shot: stores the cached public pulls and every bundle in Postgres (idempotent) |
 | `api` | serves `/data/manifest.json` and `/data/<source>/bundle.json` from Postgres (each source's current export) |
 | `web` | nginx serving the production React build; proxies `/data/*` to the api; healthy once `/data/manifest.json` is served from Postgres |
 | `tests` *(profile)* | `docker compose --profile test run --rm tests` — the engine suite inside the image |
 | `streamlit` *(profile)* | `docker compose --profile legacy up -d` — the original demo on :8501 |
 
-Re-pull real identities (network): `docker compose run --rm exporter python -m engine.export_web`, then
+Re-pull the CMS records (network): `docker compose run --rm exporter python -m engine.export_web`, then
 `docker compose restart web`. Stop: `docker compose down` (add `-v` to drop the data volume).
 
 **Local development:**
@@ -49,16 +49,16 @@ Postgres (Docker serves the app from it; optional for local dev) — see [docs/d
 docker compose up -d db && .venv/bin/alembic upgrade head && .venv/bin/python -m engine.db.load
 ```
 
-Bundles and the cached real identities are committed, so the app runs from a fresh clone
-without network. To re-pull real identities from the NIH/NLM NPI registry, run
-`.venv/bin/python -m engine.export_web` (no `--offline`).
+Bundles and the cached CMS pulls are committed, so the app runs from a fresh clone
+without network. To re-pull the CMS records, run `.venv/bin/python -m engine.export_web`
+(no `--offline`).
 
 ## What's inside
 
 | | |
 |---|---|
 | **Methodology** (`/`) | the funnel, scope, the ten signals, timing, cohort viability, honest validation |
-| **Dashboard** (`/:source/dashboard`) | KPIs, US map, strongest cohorts, act-now list, timing & subspecialty mix, threshold sensitivity, signals — plus the **Synthetic / Real identities** toggle |
+| **Dashboard** (`/:source/dashboard`) | KPIs, US map, strongest cohorts, act-now list, timing & subspecialty mix, threshold sensitivity, signals — plus the **Real data / Synthetic** toggle |
 | **Locations**, **Hospital systems** | per-metro and per-employer pages: cohorts, systems, charts that drill into filtered lists |
 | **Cohorts** | viability breakdown, members, and who would strengthen the cohort (Δ viability) |
 | **Cardiologists** | URL-filterable directory; each profile shows why this score, why this window, cohorts they could join, related colleagues / similar profiles / complements |
@@ -68,9 +68,9 @@ without network. To re-pull real identities from the NIH/NLM NPI registry, run
 the scorer never sees — it tests the pipeline (top-25 move rate 44% vs 19.7% base →
 **≈2× lift**, 2.24×, 95% CI 1.4–3.2×; AUC 0.621 vs a best achievable 0.627). Because that outcome
 is simulated from the model's own hypotheses, it can't validate the hypotheses — only real
-outcomes can. *Real identities*: all 1,087 cardiologists practicing in the eight cities per
-the public NIH/NLM NPI registry; identity, location and subspecialty are real, everything
-behavioral is simulated and labeled as such. Hospital systems are placeholders. No PHI.
+outcomes can. Hospital systems are placeholders. No PHI. There is deliberately no mode that
+puts real names on simulated signals: a simulated score next to a real physician reads as a
+fact about them.
 
 *Real data*: real public records only, nothing simulated. 205 cardiologists in the eight
 cities whose 2024 Medicare billing is at most 20% in office settings (CMS Medicare Physician &
@@ -103,8 +103,8 @@ hospitals, Google News is searched for the last 36 months; each article is opene
 counts only if Claude's quote appears **word for word** in the article, it's about one of those
 organizations, it's reported as fact (not rumored or denied) and it's M&A, financial distress,
 layoffs, bankruptcy or closure; follow-up coverage doesn't make an event newer. Article text never
-leaves `data/raw/` (git-ignored); the app gets the link, headline and short quote. In Synthetic and
-Real-identities modes the same pipeline reads **fictional** articles Claude wrote about the
+leaves `data/raw/` (git-ignored); the app gets the link, headline and short quote. In Synthetic
+mode the same pipeline reads **fictional** articles Claude wrote about the
 simulator's own events (plus decoys: denials, routine news, old events, other organizations), and
 employer disruption there comes from what it read — with extraction accuracy shown on the News page.
 
@@ -128,7 +128,7 @@ is cached in `data/raw/llm/`, so re-runs are free; bundle rebuilds never call th
 
 ```
 engine/        scoring · timing · signals catalog · cohort formation · insights · evaluation
-               export_web (bundles) · bundle_check (contract) · nppes_nlm (real identities)
+               export_web (bundles) · bundle_check (contract) · real_data (CMS records)
 web/           React + TypeScript + Tailwind; src/pages (one per entity), src/test
 tests/         pytest suite for the engine and the bundle contract
 scripts/       smoke.sh — the full test ladder
@@ -143,10 +143,10 @@ scripts/smoke.sh          # pytest → rebuild → contract → typecheck → vi
 scripts/smoke.sh --fast   # inner loop
 ```
 
-66 engine tests (incl. "flipping the hidden label changes no score", locked headline
+82 engine tests (incl. "flipping the hidden label changes no score", locked headline
 metrics, and one regression per adversarial-review finding), a contract validator the
-exporter runs before writing (including disclosure control), and 98 web tests — every page
-type for both data sources plus a crawler that follows every link from the dashboard and
+exporter runs before writing (including disclosure control), and 62 web tests — every page
+type in the scored source plus a crawler that follows every link from the dashboard and
 fails on any dead end. Visual QA runs in real Chrome via `web/scripts/screenshots.mjs`.
 
 ## Developing with Claude Code
@@ -154,7 +154,7 @@ fails on any dead end. Visual QA runs in real Chrome via `web/scripts/screenshot
 `.claude/` makes the repo's conventions executable:
 
 - `CLAUDE.md` — architecture, commands, the ten invariants, gotchas.
-- **Skills:** `/add-signal`, `/export-data`, `/ingest-real-data`, `/add-page`,
+- **Skills:** `/add-signal`, `/export-data`, `/add-page`,
   `/design-system`, `/run-tests`, `/adversarial-review`, `/demo-prep`.
 - **Agents:** four red teams (correctness, data integrity, frontend, methodology), a
   `review-judge` that must reproduce every finding, and a `test-engineer` that writes
