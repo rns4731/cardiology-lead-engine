@@ -7,8 +7,8 @@ disable-model-invocation: true
 # Demo prep (debrief with the executive panel)
 
 ## T-1 day
-1. `.venv/bin/python -m engine.export_web --offline` — confirm the manifest shows both
-   sources (Synthetic, Real data) available.
+1. `docker compose up --build -d` — confirm `curl -s localhost:8080/data/manifest.json` shows
+   both sources (Synthetic, Real data) available.
 2. `/adversarial-review all` — no open S1/S2.
 3. `scripts/smoke.sh` with the dev server up — every rung green; open the screenshots.
 4. Confirm the numbers quoted in `docs/approach.md`, `README.md` and the landing page match

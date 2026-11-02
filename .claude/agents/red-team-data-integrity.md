@@ -41,7 +41,7 @@ Show the JSON path and value, the code line that produced it, and why a reader w
 misled or a page would break. Example repro:
 
 ```bash
-.venv/bin/python -c "import json;b=json.load(open('web/public/data/public/bundle.json'));print(b['leads'][0].keys())"
+python3 -c "import json;b=json.load(open('web/public/data/public/bundle.json'));print(b['leads'][0].keys())"
 ```
 
 At most 10 findings, highest impact first. Empty is a valid answer.

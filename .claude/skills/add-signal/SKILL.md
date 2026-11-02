@@ -30,7 +30,7 @@ page breaks. Work in this order.
    exactly), `source`, `public`. The module asserts the catalog covers exactly `WEIGHTS`.
 
 ## 3. Tests & locks
-- `.venv/bin/python -m pytest` — `test_weights_sum_to_100`, contribution-sum and
+- `docker compose up --build -d && docker compose --profile test run --rm tests` — `test_weights_sum_to_100`, contribution-sum and
   bound tests cover the new signal automatically.
 - If the seed-42 numbers move, `test_seed42_metrics_locked` and `test_build_groups_golden`
   fail **on purpose**: confirm the new numbers are intended, update those tests, then update

@@ -13,9 +13,10 @@ except Exception:
 
 msg = None
 if "/engine/" in path and path.endswith(".py"):
-    msg = ("engine/ changed: re-export bundles (`.venv/bin/python -m engine.export_web --offline`), "
-           "then `scripts/smoke.sh --fast`. If a seed-42 metric moved, update the docs that quote it "
-           "(.claude/CLAUDE.md invariant 8).")
+    msg = ("engine/ changed: rebuild, re-export and test in Docker (`docker compose up --build -d && "
+           "docker compose --profile test run --rm tests`); for the dev server and web tests also write the "
+           "bundles to web/public/data (see /export-data). If a seed-42 metric moved, update the docs that "
+           "quote it (.claude/CLAUDE.md invariant 8).")
     if path.endswith(("export_web.py", "bundle_check.py", "insights.py")):
         msg += (" Bundle shape may have changed: bump SCHEMA_VERSION, mirror web/src/types.ts, "
                 "and add a bundle_check rule for any field a page dereferences.")

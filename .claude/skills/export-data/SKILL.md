@@ -7,13 +7,17 @@ argument-hint: "[--offline] [--source synthetic|public|all]"
 # Export data bundles
 
 ```bash
-.venv/bin/python -m engine.export_web --offline   # default during development
-.venv/bin/python -m engine.export_web             # also re-pulls the CMS records (network)
-.venv/bin/python -m engine.bundle_check           # validate what's on disk
+docker compose up --build -d                     # rebuild, re-export (offline), load: what :8080 serves
+docker compose run --rm --no-deps -v "$PWD/engine:/app/engine:ro" -v "$PWD/web/public/data:/app/web/public/data" exporter
+                                                 # write bundles to web/public/data (dev server, web tests)
+docker compose run --rm --no-deps exporter python -m engine.bundle_check   # validate the app's bundles
+docker compose run --rm exporter python -m engine.export_web && docker compose run --rm loader
+                                                 # re-pull CMS Medicare (network), then store it
 ```
 
-Outputs: `web/public/data/{synthetic,public}/bundle.json` and `web/public/data/manifest.json`.
-The dev server serves them directly — reload the browser; no rebuild needed.
+Outputs: `{synthetic,public}/bundle.json` and `manifest.json` — in the `bundles` Docker volume
+(loaded into Postgres and served on :8080), or in `web/public/data/` with the host mount above,
+which the dev server serves directly (reload the browser; no rebuild needed).
 
 ## How the Real data source works
 - `engine/real_data.build_public_bundle` builds it from cached CMS pulls

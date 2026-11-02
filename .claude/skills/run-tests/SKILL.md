@@ -6,8 +6,12 @@ argument-hint: "[--fast]"
 
 # Run the tests
 
+The app runs in Docker; rungs 1 and 3 run there. Rungs 2 and 4–7 need the bundles in
+`web/public/data` and Node on the host.
+
 ```bash
-scripts/smoke.sh          # full ladder
+docker compose up --build -d && docker compose --profile test run --rm tests   # rebuild + engine tests
+scripts/smoke.sh          # full ladder on the host (Python with requirements.txt + Node; PY=... to pick a Python)
 scripts/smoke.sh --fast   # skip build + screenshots (inner loop)
 ```
 
@@ -16,9 +20,9 @@ a green run means something:
 
 | # | Rung | Command | Proves | Typical failure → where to look |
 |---|---|---|---|---|
-| 1 | Engine unit | `.venv/bin/python -m pytest` | scoring arithmetic, timing cutoffs, label independence, cohort bounds/disjointness/determinism, related/candidate rules, locked seed-42 metrics, one regression per review finding, news-pipeline rules, back-test rules (84) | `test_seed42_metrics_locked` → you changed numbers; intentional? update docs |
-| 2 | Rebuild | `python -m engine.export_web --offline` | the current engine produces bundles (Real data rebuilt from the cached CMS pulls) | exporter raises `bundle failed validation` → rung 3 explains |
-| 3 | Contract | `python -m engine.bundle_check` | referential integrity across leads/groups/metros/systems/signals, no NaN, no label leak, contributions sum to score | a new field the UI dereferences isn't validated → add a rule |
+| 1 | Engine unit | `docker compose up --build -d && docker compose --profile test run --rm tests` | scoring arithmetic, timing cutoffs, label independence, cohort bounds/disjointness/determinism, related/candidate rules, locked seed-42 metrics, one regression per review finding, news-pipeline rules, back-test rules (84) | `test_seed42_metrics_locked` → you changed numbers; intentional? update docs |
+| 2 | Rebuild | `docker compose run --rm --no-deps -v "$PWD/engine:/app/engine:ro" -v "$PWD/web/public/data:/app/web/public/data" exporter` | the current engine produces bundles, written to `web/public/data` for the dev server and web tests (Real data rebuilt from the caches in `data/cache/`) | exporter raises `bundle failed validation` → rung 3 explains |
+| 3 | Contract | `docker compose run --rm --no-deps exporter python -m engine.bundle_check` | referential integrity across leads/groups/metros/systems/signals, no NaN, no label leak, contributions sum to score | a new field the UI dereferences isn't validated → add a rule |
 | 4 | Typecheck | `npm --prefix web run typecheck` | `types.ts` and every page agree | shape changed in Python but not in `types.ts` |
 | 5 | Web tests | `npm --prefix web test` | lib units; **every Synthetic page type renders** with real ids; not-found paths; **link crawl** from the dashboard with no dead ends (62). Real data pages aren't in vitest; rung 7 renders five of them | `crawl.test.tsx` → a link points somewhere that 404s |
 | 6 | Build | `npm --prefix web run build` | production bundle compiles | — |
@@ -30,8 +34,9 @@ a green run means something:
 - Run rung 1–5 after every meaningful change; the full ladder before a review or demo.
 - Real-data rungs skip gracefully when the Real data bundle doesn't exist; say so in your
   report rather than implying it was tested.
-- Network is needed only to *refresh* the CMS records (`python -m engine.export_web` without
-  `--offline`); it requires the sandbox disabled here.
+- Network is needed only to *refresh* the CMS Medicare records
+  (`docker compose run --rm exporter python -m engine.export_web`, then `docker compose run --rm loader`);
+  Docker commands also need the sandbox disabled here.
 - Rung 7 needs the dev server: `npm --prefix web run dev` (port 5190). For phone width:
   `WIDTH=400 node web/scripts/screenshots.mjs`.
 - After screenshots, actually open the PNGs (Read tool) and walk `qa-checklist.md`. Passing

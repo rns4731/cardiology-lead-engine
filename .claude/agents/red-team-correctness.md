@@ -38,7 +38,8 @@ every finding in the rubric's exact format; **a finding without a repro will be 
 Prefer a minimal pandas frame that triggers the bug, e.g.
 
 ```bash
-.venv/bin/python - <<'EOF'
+# runs your working-tree engine/ code with the image's Python (no host venv)
+docker compose run --rm --no-deps -T -v "$PWD/engine:/app/engine:ro" exporter python - <<'EOF'
 import pandas as pd
 from engine.clustering import form_cohorts
 ...
