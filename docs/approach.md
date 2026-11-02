@@ -117,8 +117,9 @@ held-out doctors included 10 movers (20% vs 4.7%, ~4.3×, likely 2.4–7.0×) �
 - it failed the cross-check: the same score didn't predict the other inferred outcome (switching
   to office-dominant billing, 2022 → 2024; AUC 0.55, CI 0.47–0.63);
 - most fitted directions are the opposite of the hypotheses above (lower productivity and fewer
-  independent groups nearby point toward moving); only industry payments points the expected way
-  with confidence;
+  independent groups nearby point toward moving); three of nine point the expected way, and only
+  industry payments and prior independent practice do so reliably (same sign in 100% and 93% of
+  bootstrap refits; career stage's 2 points flip in over a third of them);
 - the mover count swings from 12 to 56 depending on the window, so some "moves" may be quirks of
   how CMS lists groups.
 

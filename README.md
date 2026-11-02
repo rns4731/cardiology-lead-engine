@@ -104,7 +104,8 @@ advance: scores appear only if the out-of-fold AUC's 95% interval is above 0.5. 
 CI 0.57–0.75; top 50 held-out: 10 moved = 20% vs 4.7%), **but** it did not predict the cross-check
 outcome (switch to office billing, AUC 0.55, CI 0.47–0.63), and most fitted directions are the
 opposite of the original hypotheses (lower productivity and fewer independent groups nearby point
-toward moving; only industry payments points the expected way). The mover count also swings from 12
+toward moving; three of nine point the expected way: industry payments and prior independent practice
+reliably, career stage only weakly). The mover count also swings from 12
 to 56 depending on the window, so some "moves" may be CMS listing artifacts. Treat the ranking as a
 lead list to check, not a forecast. Timing windows and cohorts stay blank.
 
