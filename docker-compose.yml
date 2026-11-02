@@ -65,8 +65,8 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
-  # One-shot: scores both universes and writes the JSON bundles into the shared volume.
-  # Offline by default -- the real bundle is rebuilt from the cached public NPI records.
+  # One-shot: builds the Synthetic and Real data bundles into the shared volume.
+  # Offline by default -- Real data is rebuilt from the committed caches in data/cache/.
   exporter:
     build:
       context: .
@@ -129,9 +129,14 @@ services:
     # the Postgres tests use their own database (leads_test), never the app's
     environment:
       TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-leads}:${POSTGRES_PASSWORD:-leads}@db:5432/leads_test
+    # the exported bundles, so the contract and bundle tests run instead of skipping
+    volumes:
+      - bundles:/app/web/public/data:ro
     depends_on:
       db:
         condition: service_healthy
+      exporter:
+        condition: service_completed_successfully
 
   # The original Streamlit demo (left as-is).
   streamlit:

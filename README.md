@@ -10,10 +10,10 @@ The approach, scope decisions, results and trade-offs are in
 
 ## Quickstart
 
-**Docker (recommended)** — nothing to install but Docker:
+Everything runs in Docker; nothing else to install.
 
 ```bash
-docker compose up --build -d      # exporter computes the data, then nginx serves the app
+docker compose up --build -d      # export -> Postgres -> api -> nginx
 open http://localhost:8080
 ```
 
@@ -21,41 +21,29 @@ open http://localhost:8080
 |---|---|
 | `db` | Postgres 17 — the engine's system of record (`localhost:5432`, user/db `leads`) |
 | `migrate` | one-shot `alembic upgrade head`: creates / migrates the tables |
-| `exporter` | one-shot Python engine: builds the Synthetic and Real data bundles and writes them to a shared volume (offline; Real data comes from the committed CMS cache) |
+| `exporter` | one-shot Python engine: builds the Synthetic and Real data bundles into a shared volume (offline, from the committed caches in `data/cache/`) |
 | `loader` | one-shot: stores the cached public pulls and every bundle in Postgres (idempotent) |
-| `api` | serves `/data/manifest.json` and `/data/<source>/bundle.json` from Postgres (each source's current export) |
+| `api` | serves `/data/manifest.json` and `/data/<source>/bundle.json` from Postgres (each source's newest export) |
 | `web` | nginx serving the production React build; proxies `/data/*` to the api; healthy once `/data/manifest.json` is served from Postgres |
-| `tests` *(profile)* | `docker compose --profile test run --rm tests` — the engine suite inside the image |
+| `tests` *(profile)* | the engine test suite inside the image, against the exported bundles |
 | `streamlit` *(profile)* | `docker compose --profile legacy up -d` — the original demo on :8501 |
 
-Re-pull the CMS Medicare utilization records (network, ~2 h):
-`docker compose run --rm exporter python -m engine.export_web`, then `docker compose run --rm loader`;
-the api serves the newest stored export, no restart needed. The other real inputs (CMS Doctors &
-Clinicians snapshots, Open Payments, news) are refreshed locally; see *Refreshing the real inputs*.
-Stop: `docker compose down` (add `-v` to drop the data volumes).
-
-**Local development:**
+Everyday commands:
 
 ```bash
-# engine (Python 3.10+)
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m engine.export_web --offline   # build the data bundles
-
-# web app
-npm --prefix web install
-npm --prefix web run dev                          # → http://localhost:5190
-```
-
-Postgres (Docker serves the app from it; optional for local dev) — see [docs/database.md](docs/database.md):
-
-```bash
-docker compose up -d db && .venv/bin/alembic upgrade head && .venv/bin/python -m engine.db.load
+docker compose up --build -d                    # after any code change: rebuild, re-export, reload
+docker compose --profile test run --rm tests    # engine tests (all 84)
+docker compose logs exporter loader             # what the one-shot jobs did
+docker compose exec db psql -U leads leads      # query the Postgres store (docs/database.md)
+docker compose down                             # stop (add -v to drop the data volumes)
 ```
 
 Bundles and the compact caches of every real input (`data/cache/`) are committed, so the app
-runs and rebuilds from a fresh clone without network. `.venv/bin/python -m engine.export_web`
-(no `--offline`) re-pulls only the CMS Medicare utilization records; the other inputs have their
-own commands below.
+builds from a fresh clone without network. To re-pull the CMS Medicare utilization records
+(network, ~2 h): `docker compose run --rm exporter python -m engine.export_web`, then
+`docker compose run --rm loader`; the api serves the newest stored export, no restart needed.
+The other real inputs (CMS Doctors & Clinicians snapshots, Open Payments, news) can't be
+refreshed inside Docker; see *Refreshing the real inputs*.
 
 ## What's inside
 
@@ -104,8 +92,8 @@ advance: scores appear only if the out-of-fold AUC's 95% interval is above 0.5. 
 CI 0.57–0.75; top 50 held-out: 10 moved = 20% vs 4.7%), **but** it did not predict the cross-check
 outcome (switch to office billing, AUC 0.55, CI 0.47–0.63), and most fitted directions are the
 opposite of the original hypotheses (lower productivity and fewer independent groups nearby point
-toward moving; three of nine point the expected way: industry payments and prior independent practice
-reliably, career stage only weakly). The mover count also swings from 12
+toward moving; three of nine point the expected way, but only industry payments reliably; prior
+independent practice leans that way, and career stage barely). The mover count also swings from 12
 to 56 depending on the window, so some "moves" may be CMS listing artifacts. Treat the ranking as a
 lead list to check, not a forecast. Timing windows and cohorts stay blank.
 
@@ -127,19 +115,22 @@ mode the same pipeline reads **fictional** articles Claude wrote about the
 simulator's own events (plus decoys: denials, routine news, old events, other organizations), and
 employer disruption there comes from what it read — with extraction accuracy shown on the News page.
 
-Refreshing the real inputs (network; the CMS provider-data host only answers real browsers):
+**Refreshing the real inputs** (maintainers only; not needed to run the app). These steps run
+on the host, not in Docker: the CMS provider-data host only answers a real browser, the news
+pipeline opens articles in Chrome, and both need files the image doesn't carry (`data/raw/`,
+`.env`). Needs Python 3.12+ with `requirements.txt` and `requirements-pipeline.txt` (anthropic,
+trafilatura), Node 20+ with `npm --prefix web install`, and Google Chrome.
 
 ```bash
 node scripts/download_cms.cjs data/raw/cms <snapshot zip urls>   # CMS Doctors & Clinicians archive
-.venv/bin/python -m engine.cms_directory     # -> data/cache/cms_directory.json.gz
-.venv/bin/python -m engine.wrvu              # -> data/cache/work_rvu_2024.json
-.venv/bin/python -m engine.open_payments     # streams the 2025 bulk file -> data/cache/open_payments.json
-.venv/bin/python -m engine.open_payments 2021  # the back-test's pre-2022 payments -> open_payments_2021.json
-.venv/bin/pip install -r requirements-pipeline.txt   # anthropic, trafilatura
-.venv/bin/python -m engine.news.fake         # fictional articles + extraction (Claude) -> data/cache/news_fake.json
-.venv/bin/python -m engine.news.real_news    # real news (Claude) -> data/cache/news_real.json
-.venv/bin/python -m engine.backtest          # back-test and fit (offline) -> data/cache/backtest.json
-.venv/bin/python -m engine.export_web --offline
+python -m engine.cms_directory       # -> data/cache/cms_directory.json.gz
+python -m engine.wrvu                # -> data/cache/work_rvu_2024.json
+python -m engine.open_payments       # streams the 2025 bulk file -> data/cache/open_payments.json
+python -m engine.open_payments 2021  # the back-test's pre-2022 payments -> open_payments_2021.json
+python -m engine.news.fake           # fictional articles + extraction (Claude) -> data/cache/news_fake.json
+python -m engine.news.real_news      # real news (Claude) -> data/cache/news_real.json
+python -m engine.backtest            # back-test and fit (offline) -> data/cache/backtest.json
+docker compose up --build -d         # re-export from the new caches and serve
 ```
 
 The Claude key is read from `.env` (`ANTHROPIC_API_KEY`, git- and docker-ignored). Every Claude call
@@ -164,16 +155,20 @@ run.py, app.py legacy CLI and Streamlit demo
 ## Testing
 
 ```bash
-scripts/smoke.sh          # pytest → rebuild → contract → typecheck → vitest → build → screenshots
-scripts/smoke.sh --fast   # inner loop
+docker compose --profile test run --rm tests    # engine tests, in Docker (all 84)
 ```
 
 84 engine tests (incl. "flipping the hidden label changes no score", locked headline
 metrics, one regression per adversarial-review finding, the news-pipeline rules and the
-back-test's no-imputation rule), a contract validator the exporter runs before writing
+back-test's no-imputation rule), and a contract validator the exporter runs before writing
 (including disclosure control, and for Real data: no value without a stated fact, no scores
-without a passing back-test, no article text shipped), and 62 web tests — every Synthetic page
-type plus a crawler that follows every link from the dashboard and fails on any dead end. The
+without a passing back-test, no article text shipped). The image build itself type-checks and
+compiles the web app.
+
+The web tests and the full ladder run on the host (Node 20+ and Python 3.12+), not in Docker:
+`npm --prefix web install && npm --prefix web test` runs the 62 web tests — every Synthetic page
+type plus a crawler that follows every link from the dashboard and fails on any dead end.
+`scripts/smoke.sh` runs the whole ladder (set `PY` to your Python if it isn't `python3`). The
 Real data pages have no vitest coverage; `web/scripts/screenshots.mjs` renders five of them in
 real Chrome alongside the Synthetic pages.
 

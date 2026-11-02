@@ -2,12 +2,14 @@
 # The test ladder, cheapest rung first; stops at the first failure.
 #   scripts/smoke.sh          full ladder (+ screenshots if the dev server is up on :5190)
 #   scripts/smoke.sh --fast   skip the production build and screenshots
+#   PY=/path/to/python scripts/smoke.sh   use a specific Python (default: python3)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 FAST=0
 [[ "${1:-}" == "--fast" ]] && FAST=1
-PY=.venv/bin/python
+# any Python with requirements.txt installed; the app itself runs in Docker (README)
+PY=${PY:-python3}
 step() { printf "\n\033[1m▶ %s\033[0m\n" "$1"; }
 
 step "1/6 engine tests (pytest)"
